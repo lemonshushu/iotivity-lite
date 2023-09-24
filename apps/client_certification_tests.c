@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #if defined(OC_INTROSPECTION) && defined(OC_IDD_API)
 #include "oc_introspection.h"
@@ -42,6 +43,8 @@ static pthread_mutex_t app_sync_lock;
 static pthread_mutex_t mutex;
 static pthread_cond_t cv;
 static OC_ATOMIC_INT8_T quit = 0;
+
+static struct timeval tv; // for timestamp
 
 typedef struct device_handle_t
 {
@@ -293,6 +296,10 @@ ocf_event_thread(void *data)
 static void
 POST_handler(oc_client_response_t *data)
 {
+  if (gettimeofday(&tv, NULL) != 0) {
+    OC_PRINTF("[TEST] gettimeofday failed");
+  }
+  OC_PRINTF("[TEST] POST response: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
   OC_PRINTF("POST_handler:\n");
   if (data->code == OC_STATUS_CHANGED) {
     OC_PRINTF("POST response OK\n");
@@ -312,6 +319,10 @@ POST_handler(oc_client_response_t *data)
 static void
 GET_handler(oc_client_response_t *data)
 {
+  if (gettimeofday(&tv, NULL) != 0) {
+    OC_PRINTF("[TEST] gettimeofday failed");
+  }
+  OC_PRINTF("[TEST] GET response: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
   OC_PRINTF("GET_handler:\n");
   char buf[4096];
   oc_rep_to_json(data->payload, buf, 4096, true);
@@ -376,6 +387,11 @@ get_resource(bool tcp, bool observe)
       while (ep && (tcp && !(ep->flags & TCP))) {
         ep = ep->next;
       }
+
+      if (gettimeofday(&tv, NULL) != 0) {
+        OC_PRINTF("[TEST] gettimeofday failed");
+      }
+      OC_PRINTF("[TEST] GET request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
       if (observe) {
         if (!oc_do_observe(res[c]->uri, ep, NULL, GET_handler, HIGH_QOS,
                            NULL)) {
@@ -443,6 +459,11 @@ post_resource(bool tcp, bool mcast)
         while (ep && (tcp && !(ep->flags & TCP))) {
           ep = ep->next;
         }
+
+        if (gettimeofday(&tv, NULL) != 0) {
+          OC_PRINTF("[TEST] gettimeofday failed");
+        }
+        OC_PRINTF("[TEST] POST request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
         if ((!mcast &&
              oc_init_post(res[c]->uri, ep, NULL, &POST_handler, HIGH_QOS, NULL))
 #ifdef OC_OSCORE
