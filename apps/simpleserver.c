@@ -22,6 +22,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 static pthread_mutex_t mutex;
 static pthread_cond_t cv;
@@ -32,6 +33,8 @@ static bool state = false;
 static int power = 0;
 static oc_string_t name;
 static bool g_binaryswitch_value = false;
+
+static struct timeval tv; // for timestamp
 
 static int
 app_init(void)
@@ -47,6 +50,10 @@ static void
 get_binaryswitch(oc_request_t *request, oc_interface_mask_t interfaces,
                  void *user_data)
 {
+  if (gettimeofday(&tv, NULL) != 0) {
+    OC_PRINTF("[SERVER] gettimeofday failed");
+  }
+  OC_PRINTF("[SERVER] Got POST request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
   (void)user_data; /* not used */
   OC_PRINTF("get_binaryswitch: interface %d\n", interfaces);
   oc_rep_start_root_object();
@@ -64,6 +71,11 @@ get_binaryswitch(oc_request_t *request, oc_interface_mask_t interfaces,
     break;
   }
   oc_rep_end_root_object();
+
+  if (gettimeofday(&tv, NULL) != 0) {
+    OC_PRINTF("[SERVER] gettimeofday failed");
+  }
+  OC_PRINTF("[SERVER] Sending response to GET request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
   oc_send_response(request, OC_STATUS_OK);
 }
 
@@ -71,6 +83,10 @@ static void
 post_binaryswitch(oc_request_t *request, oc_interface_mask_t interfaces,
                   void *user_data)
 {
+  if (gettimeofday(&tv, NULL) != 0) {
+    OC_PRINTF("[SERVER] gettimeofday failed");
+  }
+  OC_PRINTF("[SERVER] Got POST request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
   (void)interfaces;
   (void)user_data;
   bool error_state = false;
@@ -109,6 +125,11 @@ post_binaryswitch(oc_request_t *request, oc_interface_mask_t interfaces,
     oc_rep_set_boolean(root, value, g_binaryswitch_value);
     oc_rep_end_root_object();
 
+
+    if (gettimeofday(&tv, NULL) != 0) {
+      OC_PRINTF("[SERVER] gettimeofday failed");
+    }
+    OC_PRINTF("[SERVER] Sending response to POST request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
     oc_send_response(request, OC_STATUS_CHANGED);
   } else {
     /* TODO: add error response, if any */
