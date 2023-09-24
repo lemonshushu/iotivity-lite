@@ -44,7 +44,8 @@ static pthread_mutex_t mutex;
 static pthread_cond_t cv;
 static OC_ATOMIC_INT8_T quit = 0;
 
-static struct timeval tv; // for timestamp
+static struct timeval tv_start;
+static struct timeval tv_end;
 
 typedef struct device_handle_t
 {
@@ -296,10 +297,11 @@ ocf_event_thread(void *data)
 static void
 POST_handler(oc_client_response_t *data)
 {
-  if (gettimeofday(&tv, NULL) != 0) {
+  if (gettimeofday(&tv_end, NULL) != 0) {
     OC_PRINTF("[CLIENT] gettimeofday failed");
   }
-  OC_PRINTF("[CLIENT] POST response: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+  OC_PRINTF("[CLIENT] (POST) tv_end: %ld.%06ld\n", tv_end.tv_sec, tv_end.tv_usec);
+  OC_PRINTF("[CLIENT] (POST) tv_end - tv_start: %ld.%06ld\n", tv_end.tv_sec - tv_start.tv_sec, tv_end.tv_usec - tv_start.tv_usec);
   OC_PRINTF("POST_handler:\n");
   if (data->code == OC_STATUS_CHANGED) {
     OC_PRINTF("POST response OK\n");
@@ -319,10 +321,11 @@ POST_handler(oc_client_response_t *data)
 static void
 GET_handler(oc_client_response_t *data)
 {
-  if (gettimeofday(&tv, NULL) != 0) {
+  if (gettimeofday(&tv_end, NULL) != 0) {
     OC_PRINTF("[CLIENT] gettimeofday failed");
   }
-  OC_PRINTF("[CLIENT] GET response: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+  OC_PRINTF("[CLIENT] (GET) tv_end: %ld.%06ld\n", tv_end.tv_sec, tv_end.tv_usec);
+  OC_PRINTF("[CLIENT] (GET) tv_end - tv_start: %ld.%06ld\n", tv_end.tv_sec - tv_start.tv_sec, tv_end.tv_usec - tv_start.tv_usec);
   OC_PRINTF("GET_handler:\n");
   char buf[4096];
   oc_rep_to_json(data->payload, buf, 4096, true);
@@ -388,10 +391,10 @@ get_resource(bool tcp, bool observe)
         ep = ep->next;
       }
 
-      if (gettimeofday(&tv, NULL) != 0) {
+      if (gettimeofday(&tv_start, NULL) != 0) {
         OC_PRINTF("[CLIENT] gettimeofday failed");
       }
-      OC_PRINTF("[CLIENT] GET request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+      OC_PRINTF("[CLIENT] (GET) tv_start: %ld.%06ld\n", tv_start.tv_sec, tv_start.tv_usec);
       if (observe) {
         if (!oc_do_observe(res[c]->uri, ep, NULL, GET_handler, HIGH_QOS,
                            NULL)) {
@@ -460,10 +463,10 @@ post_resource(bool tcp, bool mcast)
           ep = ep->next;
         }
 
-        if (gettimeofday(&tv, NULL) != 0) {
+        if (gettimeofday(&tv_start, NULL) != 0) {
           OC_PRINTF("[CLIENT] gettimeofday failed");
         }
-        OC_PRINTF("[CLIENT] POST request: %ld.%06ld\n", tv.tv_sec, tv.tv_usec);
+        OC_PRINTF("[CLIENT] (POST) tv_start: %ld.%06ld\n", tv_start.tv_sec, tv_start.tv_usec);
         if ((!mcast &&
              oc_init_post(res[c]->uri, ep, NULL, &POST_handler, HIGH_QOS, NULL))
 #ifdef OC_OSCORE
