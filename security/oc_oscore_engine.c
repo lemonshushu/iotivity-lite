@@ -17,8 +17,9 @@
  ******************************************************************/
 
 #if defined(OC_SECURITY) && defined(OC_OSCORE)
-#include "api/oc_buffer_internal.h"
+
 #include "api/oc_events_internal.h"
+#include "api/oc_message_internal.h"
 #include "messaging/coap/coap_options.h"
 #include "messaging/coap/coap_signal.h"
 #include "messaging/coap/engine.h"
@@ -822,7 +823,7 @@ oscore_send_error:
 OC_PROCESS_THREAD(oc_oscore_handler, ev, data)
 {
   OC_PROCESS_BEGIN();
-  while (1) {
+  while (oc_process_is_running(&oc_oscore_handler)) {
     OC_PROCESS_YIELD();
 
     if (ev == oc_event_to_oc_process_event(INBOUND_OSCORE_EVENT)) {

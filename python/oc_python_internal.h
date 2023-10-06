@@ -1,6 +1,8 @@
 /****************************************************************************
  *
- * Copyright 2018 Samsung Electronics All Rights Reserved.
+ * Copyright (c) 2017-2019 Intel Corporation
+ * Copyright (c) 2021 Cascoda Ltd.
+ * Copyright (c) 2021 Cable Televesion Laboratories Ltd.
  *
  * Licensed under the Apache License, Version 2.0 (the "License"),
  * you may not use this file except in compliance with the License.
@@ -16,22 +18,26 @@
  *
  ****************************************************************************/
 
-#ifndef OC_MEM_TRACE_H
-#define OC_MEM_TRACE_H
+#ifndef OC_PYTHON_INTERNAL_H
+#define OC_PYTHON_INTERNAL_H
+
+#include "oc_ri.h"
+#include "util/oc_compiler.h"
+
+#include <stdbool.h>
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-#define MEM_TRACE_ALLOC (1) // it would be combination when BYTE, INT, DOUBLE
-#define MEM_TRACE_FREE (0)
-
-void oc_mem_trace_init(void);
-void oc_mem_trace_add_pace(const char *func, int size, int type, void *address);
-void oc_mem_trace_shutdown(void);
+bool encode_resource_discovery_payload(char *buffer, size_t buffer_size,
+                                       const char *uri, const char *types,
+                                       oc_interface_mask_t iface_mask)
+  OC_NONNULL();
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* OC_MEM_TRACE_H */
+#endif /* OC_PYTHON_INTERNAL_H */

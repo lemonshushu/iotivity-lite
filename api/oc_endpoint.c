@@ -21,9 +21,9 @@
 #include "oc_endpoint.h"
 #include "oc_core_res.h"
 #include "port/common/oc_ip.h"
+#include "port/oc_allocator_internal.h"
 #include "port/oc_connectivity.h"
 #include "port/oc_log_internal.h"
-#include "port/oc_network_event_handler_internal.h"
 #include "util/oc_macros_internal.h"
 #include "util/oc_memb.h"
 
@@ -44,11 +44,11 @@ oc_endpoint_t *
 oc_new_endpoint(void)
 {
 #ifndef OC_DYNAMIC_ALLOCATION
-  oc_network_event_handler_mutex_lock();
+  oc_allocator_mutex_lock();
 #endif /* !OC_DYNAMIC_ALLOCATION */
   oc_endpoint_t *endpoint = (oc_endpoint_t *)oc_memb_alloc(&oc_endpoints_s);
 #ifndef OC_DYNAMIC_ALLOCATION
-  oc_network_event_handler_mutex_unlock();
+  oc_allocator_mutex_unlock();
 #endif /* !OC_DYNAMIC_ALLOCATION */
   return endpoint;
 }
@@ -56,9 +56,16 @@ oc_new_endpoint(void)
 void
 oc_free_endpoint(oc_endpoint_t *endpoint)
 {
-  if (endpoint) {
-    oc_memb_free(&oc_endpoints_s, endpoint);
+  if (endpoint == NULL) {
+    return;
   }
+#ifndef OC_DYNAMIC_ALLOCATION
+  oc_allocator_mutex_lock();
+#endif /* !OC_DYNAMIC_ALLOCATION */
+  oc_memb_free(&oc_endpoints_s, endpoint);
+#ifndef OC_DYNAMIC_ALLOCATION
+  oc_allocator_mutex_unlock();
+#endif /* !OC_DYNAMIC_ALLOCATION */
 }
 
 void
@@ -496,7 +503,8 @@ static int
 oc_parse_endpoint_string(const oc_string_t *endpoint_str,
                          oc_endpoint_t *endpoint, oc_string_t *uri)
 {
-  endpoint_uri_t ep_uri = { 0 };
+  endpoint_uri_t ep_uri;
+  memset(&ep_uri, 0, sizeof(endpoint_uri_t));
   if (!parse_endpoint_uri(endpoint_str, &ep_uri, uri != NULL)) {
     return -1;
   }

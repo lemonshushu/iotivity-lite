@@ -18,11 +18,8 @@
 
 #ifdef OC_SECURITY
 
-#include "oc_pstat_internal.h"
-#include "api/oc_buffer_internal.h"
 #include "api/oc_main_internal.h"
-#include "api/oc_ri_internal.h"
-#include "api/oc_server_api_internal.h"
+#include "api/oc_message_buffer_internal.h"
 #include "messaging/coap/coap_internal.h"
 #include "messaging/coap/observe.h"
 #include "oc_acl_internal.h"
@@ -32,6 +29,7 @@
 #include "oc_cred_internal.h"
 #include "oc_doxm_internal.h"
 #include "oc_keypair_internal.h"
+#include "oc_pstat_internal.h"
 #include "oc_roles_internal.h"
 #include "oc_sdi_internal.h"
 #include "oc_sp_internal.h"
@@ -43,9 +41,9 @@
 #include "api/cloud/oc_cloud_internal.h"
 #endif /* OC_CLOUD */
 
-#ifdef OC_COLLECTIONS_IF_CREATE
+#if defined(OC_COLLECTIONS) && defined(OC_COLLECTIONS_IF_CREATE)
 #include "api/oc_resource_factory_internal.h"
-#endif /* OC_COLLECTIONS_IF_CREATE */
+#endif /* OC_COLLECTIONS && OC_COLLECTIONS_IF_CREATE */
 
 #ifdef OC_SOFTWARE_UPDATE
 #include "api/oc_swupdate_internal.h"
@@ -698,7 +696,7 @@ oc_pstat_set_reset_delay_ms(uint64_t delay_ms)
 }
 
 uint64_t
-oc_pstat_get_reset_delay_ms()
+oc_pstat_get_reset_delay_ms(void)
 {
   return g_reset_delay_ms;
 }

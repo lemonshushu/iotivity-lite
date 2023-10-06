@@ -20,15 +20,25 @@
 #include "port/oc_random.h"
 #include "port/oc_clock.h"
 
+#ifndef OC_DYNAMIC_ALLOCATION
+#include "port/oc_allocator_internal.h"
+#endif /* !OC_DYNAMIC_ALLOCATION */
+
 void
 oc_runtime_init(void)
 {
   oc_random_init();
   oc_clock_init();
+#ifndef OC_DYNAMIC_ALLOCATION
+  oc_allocator_mutex_init();
+#endif /* !OC_DYNAMIC_ALLOCATION */
 }
 
 void
 oc_runtime_shutdown(void)
 {
+#ifndef OC_DYNAMIC_ALLOCATION
+  oc_allocator_mutex_destroy();
+#endif /* !OC_DYNAMIC_ALLOCATION */
   oc_random_destroy();
 }

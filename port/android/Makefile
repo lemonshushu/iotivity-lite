@@ -133,7 +133,7 @@ DTLS= \
 	x509_csr.c	platform_util.c ssl_msg.c constant_time.c \
 	nist_kw.c aria.c rsa_alt_helpers.c
 
-DTLSFLAGS=-I../../deps/mbedtls/include
+DTLSFLAGS=-I../../deps/mbedtls/include -Wno-error=unused
 
 CBOR=../../deps/tinycbor/src/cborencoder.c ../../deps/tinycbor/src/cborencoder_close_container_checked.c ../../deps/tinycbor/src/cborencoder_float.c ../../deps/tinycbor/src/cborparser.c ../../deps/tinycbor/src/cborparser_float.c# ../../deps/tinycbor/src/cbortojson.c ../../deps/tinycbor/src/cborpretty.c ../../deps/tinycbor/src/cborparser_dup_string.c
 
@@ -143,7 +143,7 @@ endif
 
 CTIMESTAMP+=../../api/c-timestamp/timestamp_compare.c ../../api/c-timestamp/timestamp_format.c ../../api/c-timestamp/timestamp_valid.c ../../api/c-timestamp/timestamp_parse.c
 
-SRC_PORT_COMMON:=$(wildcard ../../port/common/*.c)
+SRC_PORT_COMMON:=$(wildcard ../../port/common/*.c) $(wildcard ../../port/common/posix/*.c)
 ifneq ($(MEMORY_TRACE),1)
 SRC_UTIL:=$(filter-out %_mem_trace.c,$(wildcard ../../util/*.c))
 else
@@ -197,7 +197,7 @@ else
 OBJ_CLOUD =
 endif
 OBJ_CLIENT_SERVER=$(addprefix ${OBJDIR}/client_server/,$(notdir $(SRC:.c=.o) $(SRC_CLIENT:.c=.o)))
-VPATH=../../api/:../../api/client/:../../api/cloud/:../../api/c-timestamp:../../messaging/coap/:../../port/common/:../../util/:
+VPATH=../../api/:../../api/client/:../../api/cloud/:../../api/c-timestamp:../../messaging/coap/:../../port/common/:../../port/common/posix/:../../util/:
 VPATH+=../../deps/tinycbor/src/:../../deps/mbedtls/library:
 LIBS?= -lm -llog
 

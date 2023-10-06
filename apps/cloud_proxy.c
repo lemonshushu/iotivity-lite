@@ -157,6 +157,7 @@
 #endif /* OC_INTROSPECTION && OC_IDD_API */
 
 #include <signal.h>
+#include <stdlib.h>
 
 #ifndef DOXYGEN
 // Force doxygen to document static inline
@@ -1634,7 +1635,7 @@ read_pem(const char *file_path, char *buffer, size_t *buffer_len)
     fclose(fp);
     return -1;
   }
-  if (pem_len > (long)*buffer_len) {
+  if (pem_len >= (long)*buffer_len) {
     OC_PRINTF("ERROR: buffer provided too small\n");
     fclose(fp);
     return -1;
@@ -1644,7 +1645,8 @@ read_pem(const char *file_path, char *buffer, size_t *buffer_len)
     fclose(fp);
     return -1;
   }
-  if (fread(buffer, 1, pem_len, fp) < (size_t)pem_len) {
+  size_t to_read = (size_t)pem_len;
+  if (fread(buffer, 1, to_read, fp) < (size_t)pem_len) {
     OC_PRINTF("ERROR: unable to read PEM\n");
     fclose(fp);
     return -1;

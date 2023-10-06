@@ -81,6 +81,7 @@ if(UNIX)
         message(STATUS "Address sanitizer enabled")
         add_compile_options(${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer)
         add_link_options(-fsanitize=address)
+        set(OC_ASAN_OPTIONS "debug=true:atexit=true:check_initialization_order=true:detect_stack_use_after_return=true:alloc_dealloc_mismatch=true:detect_invalid_pointer_pairs=2:strict_string_checks=true")
     endif()
 
     if(OC_LSAN_ENABLED)
@@ -93,6 +94,7 @@ if(UNIX)
         message(STATUS "Thread sanitizer enabled")
         add_compile_options(${CMAKE_C_FLAGS_DEBUG} -fsanitize=thread -fno-omit-frame-pointer)
         add_link_options(-fsanitize=thread)
+        set(OC_TSAN_OPTIONS "halt_on_error=1:abort_on_error=true")
     endif()
 
     if(OC_UBSAN_ENABLED)
@@ -453,6 +455,13 @@ file(GLOB COMMON_SRC
     ${PROJECT_SOURCE_DIR}/util/*.c
 )
 
+if(UNIX)
+    file(GLOB COMMON_POSIX_SRC
+        ${PROJECT_SOURCE_DIR}/port/common/posix/*.c
+    )
+    list(APPEND COMMON_SRC ${COMMON_POSIX_SRC})
+endif()
+
 if(NOT OC_MEMORY_TRACE_ENABLED)
     list(REMOVE_ITEM COMMON_SRC
         ${PROJECT_SOURCE_DIR}/util/oc_mem_trace.c
@@ -599,11 +608,11 @@ endif()
 # enable clang-tidy for iotivity targets
 oc_enable_clang_tidy()
 
-add_library(common-obj OBJECT ${COMMON_SRC})
-target_compile_definitions(common-obj PRIVATE ${PRIVATE_COMPILE_DEFINITIONS} PUBLIC ${PUBLIC_COMPILE_DEFINITIONS})
-target_compile_options(common-obj PRIVATE ${PRIVATE_COMPILE_OPTIONS})
-target_include_directories(common-obj PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/port ${PORT_INCLUDE_DIR})
-target_link_libraries(common-obj PRIVATE ${TINYCBOR_DEP})
+add_library(client-common-obj OBJECT ${COMMON_SRC})
+target_compile_definitions(client-common-obj PRIVATE ${PRIVATE_COMPILE_DEFINITIONS} PUBLIC ${PUBLIC_COMPILE_DEFINITIONS} "OC_CLIENT")
+target_compile_options(client-common-obj PRIVATE ${PRIVATE_COMPILE_OPTIONS})
+target_include_directories(client-common-obj PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/port ${PORT_INCLUDE_DIR})
+target_link_libraries(client-common-obj PRIVATE ${TINYCBOR_DEP})
 
 add_library(client-obj OBJECT ${CLIENT_SRC})
 target_compile_definitions(client-obj PRIVATE ${PRIVATE_COMPILE_DEFINITIONS} PUBLIC ${PUBLIC_COMPILE_DEFINITIONS} "OC_CLIENT")
@@ -614,7 +623,7 @@ if(OC_SECURITY_ENABLED)
     target_link_libraries(client-obj PRIVATE ${MBEDTLS_DEP})
 endif()
 
-add_library(server-obj OBJECT ${SERVER_SRC})
+add_library(server-obj OBJECT ${COMMON_SRC} ${SERVER_SRC})
 target_compile_definitions(server-obj PRIVATE ${PRIVATE_COMPILE_DEFINITIONS} PUBLIC ${PUBLIC_COMPILE_DEFINITIONS} "OC_SERVER")
 target_compile_options(server-obj PRIVATE ${PRIVATE_COMPILE_OPTIONS})
 target_include_directories(server-obj PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/port ${PORT_INCLUDE_DIR})
@@ -623,7 +632,7 @@ if(OC_SECURITY_ENABLED)
     target_link_libraries(server-obj PRIVATE ${MBEDTLS_DEP})
 endif()
 
-add_library(client-server-obj OBJECT ${CLIENT_SRC})
+add_library(client-server-obj OBJECT ${COMMON_SRC} ${CLIENT_SRC})
 target_compile_definitions(client-server-obj PRIVATE ${PRIVATE_COMPILE_DEFINITIONS} PUBLIC ${PUBLIC_COMPILE_DEFINITIONS} "OC_CLIENT" "OC_SERVER")
 target_compile_options(client-server-obj PRIVATE ${PRIVATE_COMPILE_OPTIONS})
 target_include_directories(client-server-obj PRIVATE ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/include ${PROJECT_SOURCE_DIR}/port ${PORT_INCLUDE_DIR})
@@ -657,7 +666,7 @@ endif()
 # ####### Compose static and shared libraries ########
 # Client
 set(client-lib-obj
-    $<TARGET_OBJECTS:common-obj>
+    $<TARGET_OBJECTS:client-common-obj>
     $<TARGET_OBJECTS:client-obj>
 )
 
@@ -713,7 +722,6 @@ endif()
 
 # Server
 set(server-lib-obj
-    $<TARGET_OBJECTS:common-obj>
     $<TARGET_OBJECTS:server-obj>
 )
 
@@ -769,7 +777,6 @@ endif()
 
 # Client-Server
 set(client-server-lib-obj
-    $<TARGET_OBJECTS:common-obj>
     $<TARGET_OBJECTS:client-server-obj>
 )
 
@@ -842,7 +849,7 @@ endif()
 if(OC_SECURITY_ENABLED)
     # Python client
     set(client-python-lib-obj
-        $<TARGET_OBJECTS:common-obj>
+        $<TARGET_OBJECTS:client-common-obj>
         $<TARGET_OBJECTS:client-obj>
         $<TARGET_OBJECTS:python-obj>
     )
@@ -958,21 +965,47 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
     if (OC_INTROSPECTION_ENABLED AND OC_IDD_API_ENABLED)
         set(apitest_files ${PROJECT_SOURCE_DIR}/api/unittest/introspectiontest_IDD.cbor)
     endif()
-    oc_package_add_test(TARGET apitest SOURCES ${COMMONTEST_SRC} ${APITEST_SRC} FILES ${apitest_files})
+    oc_package_add_test(
+        TARGET apitest
+        SOURCES ${COMMONTEST_SRC} ${APITEST_SRC}
+        FILES ${apitest_files}
+        ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                    "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+    )
 
     file(GLOB TIMESTAMPTEST_SRC api/c-timestamp/unittest/*.cpp)
-    oc_package_add_test(TARGET timestamptest SOURCES ${TIMESTAMPTEST_SRC})
+    oc_package_add_test(
+        TARGET timestamptest
+        SOURCES ${TIMESTAMPTEST_SRC}
+        ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                    "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+    )
 
     file(GLOB PLATFORMTEST_SRC port/unittest/*.cpp)
     file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/storage_test)
-    oc_package_add_test(TARGET platformtest SOURCES ${COMMONTEST_SRC} ${PLATFORMTEST_SRC})
+    oc_package_add_test(
+        TARGET platformtest
+        SOURCES ${COMMONTEST_SRC} ${PLATFORMTEST_SRC}
+        ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                    "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+    )
 
     file(GLOB MESSAGINGTEST_SRC messaging/coap/unittest/*.cpp)
-    oc_package_add_test(TARGET messagingtest SOURCES ${COMMONTEST_SRC} ${MESSAGINGTEST_SRC})
+    oc_package_add_test(
+        TARGET messagingtest
+        SOURCES ${COMMONTEST_SRC} ${MESSAGINGTEST_SRC}
+        ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                    "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+    )
 
     if(OC_SECURITY_ENABLED)
         file(GLOB SECURITYTEST_SRC security/unittest/*.cpp)
-        oc_package_add_test(TARGET securitytest SOURCES ${COMMONTEST_SRC} ${SECURITYTEST_SRC})
+        oc_package_add_test(
+            TARGET securitytest
+            SOURCES ${COMMONTEST_SRC} ${SECURITYTEST_SRC}
+            ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                        "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+        )
 
         file(COPY ${PROJECT_SOURCE_DIR}/apps/pki_certs
             DESTINATION ${CMAKE_CURRENT_BINARY_DIR}
@@ -980,12 +1013,27 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
     endif()
 
     file(GLOB UTILTEST_SRC util/unittest/*.cpp)
-    oc_package_add_test(TARGET utiltest SOURCES ${COMMONTEST_SRC} ${UTILTEST_SRC})
+    oc_package_add_test(
+        TARGET utiltest
+        SOURCES ${COMMONTEST_SRC} ${UTILTEST_SRC}
+        ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                    "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+    )
 
     if(OC_CLOUD_ENABLED)
         file(GLOB CLOUDTEST_SRC api/cloud/unittest/*.cpp)
         file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/storage_cloud)
-        oc_package_add_test(TARGET cloudtest SOURCES ${COMMONTEST_SRC} ${CLOUDTEST_SRC})
+        oc_package_add_test(
+            TARGET cloudtest
+            SOURCES ${COMMONTEST_SRC} ${CLOUDTEST_SRC}
+            ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
+                        "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+        )
+    endif()
+
+    if(OC_SECURITY_ENABLED AND OC_DYNAMIC_ALLOCATION_ENABLED)
+        file(GLOB PYTHONLIBTEST_SRC python/oc_python.c python/unittest/*.cpp)
+        oc_package_add_test(TARGET pythonlibtest SOURCES ${PYTHONLIBTEST_SRC})
     endif()
 
     if(UNIX AND NOT OC_TSAN_ENABLED)
@@ -999,7 +1047,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
             oc_package_add_test(
                 TARGET faketimetest
                 SOURCES ${COMMONTEST_SRC} ${FAKETIMETEST_SRC}
-                ENVIRONMENT "ASAN_OPTIONS=verify_asan_link_order=0"
+                ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}:verify_asan_link_order=0"
                             "LD_PRELOAD=/usr/local/lib/faketime/libfaketimeMT.so.1"
                             "FAKETIME_DONT_FAKE_MONOTONIC=1"
                             "FAKETIME_TIMESTAMP_FILE="

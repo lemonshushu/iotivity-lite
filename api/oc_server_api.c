@@ -16,9 +16,11 @@
  *
  ****************************************************************************/
 
-#include "api/oc_buffer_internal.h"
+#include "api/oc_core_res_internal.h"
 #include "api/oc_main_internal.h"
+#include "api/oc_message_internal.h"
 #include "api/oc_ri_internal.h"
+#include "api/oc_server_api_internal.h"
 #include "messaging/coap/coap_options.h"
 #include "messaging/coap/engine.h"
 #include "messaging/coap/oc_coap.h"
@@ -26,8 +28,6 @@
 #include "messaging/coap/separate.h"
 #include "oc_api.h"
 #include "oc_core_res.h"
-#include "oc_core_res_internal.h"
-#include "oc_server_api_internal.h"
 #include "port/oc_log_internal.h"
 #include "util/oc_features.h"
 #include "util/oc_macros_internal.h"
@@ -506,7 +506,9 @@ oc_add_collection_v1(oc_resource_t *collection)
 void
 oc_add_collection(oc_resource_t *collection)
 {
-  oc_add_collection_v1(collection);
+  if (!oc_add_collection_v1(collection)) {
+    OC_ERR("failed to add collection");
+  }
 }
 
 oc_resource_t *
@@ -720,7 +722,7 @@ handle_separate_response_request(coap_separate_t *request,
     response_state = oc_blockwise_alloc_response_buffer(
       oc_string(request->uri), oc_string_len(request->uri), &request->endpoint,
       request->method, OC_BLOCKWISE_SERVER,
-      (uint32_t)response_buffer->response_length, false);
+      (uint32_t)response_buffer->response_length, CONTENT_2_05, false);
     if (response_state == NULL) {
       return;
     }
