@@ -70,6 +70,11 @@
 #include <stdint.h>
 #include <string.h>
 #include <inttypes.h>
+#include <sys/time.h>
+
+struct timeval tv_start;
+struct timeval tv_end;
+__suseconds64_t time_diff;
 
 /// TODO update mbedtls_config.h to use LOG_LEVEL instead of OC_DEBUG
 #if defined(OC_DEBUG)
@@ -77,8 +82,8 @@
 #include <mbedtls/error.h>
 #include <mbedtls/platform.h>
 #elif OC_DBG_IS_ENABLED || OC_ERR_IS_ENABLED || OC_WRN_IS_ENABLED
-static void
-mbedtls_strerror(int ret, char *buf, size_t buflen)
+  static void
+  mbedtls_strerror(int ret, char *buf, size_t buflen)
 {
   snprintf(buf, buflen, "MBEDTLS_ERR(%d)", ret);
 }
@@ -116,7 +121,7 @@ mbedtls_strerror(int ret, char *buf, size_t buflen)
 #define TLS_LOG_MBEDTLS_ERROR(mbedtls_func_name, mbedtls_err)
 #endif /* !OC_DBG_IS_ENABLED && !OC_ERR_IS_ENABLED */
 
-typedef struct oc_random_pin_t
+  typedef struct oc_random_pin_t
 {
   oc_random_pin_cb_t cb;
   void *data;
@@ -2622,7 +2627,14 @@ oc_tls_on_tcp_connect(const oc_endpoint_t *endpoint, int state, void *data)
     return;
   }
   if (state == OC_TCP_SOCKET_STATE_CONNECTED) {
+
+    gettimeofday(&tv_start, NULL);
     oc_tls_handshake(peer);
+    gettimeofday(&tv_end, NULL);
+
+    time_diff = (tv_end.tv_sec - tv_start.tv_sec) * 1000000L +
+                (tv_end.tv_usec - tv_start.tv_usec);
+    OC_PRINTF("[DEBUG] oc_tls_handshake: %lu us\n", time_diff);
     return;
   }
   OC_ERR("oc_tls_on_tcp_connect: ends with error state: %d", state);
