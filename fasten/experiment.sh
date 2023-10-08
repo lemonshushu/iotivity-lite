@@ -12,6 +12,9 @@ for suffix in ${rt_suffix_list[@]}; do
     rt_list+=($temp)
 done
 
+# Run the server in the background
+./fasten_server &
+
 for rt in ${rt_list[@]};
 do
     for i in {1..10};
