@@ -47,6 +47,11 @@ port/linux/tests/*
 port/linux/obj/
 port/linux/onboarding_tool_creds/
 port/linux/smart_lock
+port/linux/client_certification_tests
+port/linux/fasten_server
+port/linux/fasten_client
+
+
 port/windows/vs2015/.vs/
 port/windows/vs2015/Debug/
 port/windows/vs2015/Release/
@@ -98,6 +103,9 @@ port/linux/multi_device_client_creds
 port/linux/multi_device_server_creds
 port/linux/server_multithread_linux_creds
 port/linux/client_multithread_linux_creds
+port/linux/fasten_server_creds
+port/linux/fasten_client_creds
+port/linux/client_certification_tests_creds
 
 #service
 service/cloud-access/unittest/obj
@@ -252,3 +260,15 @@ fabric.properties
 .github/
 tools/html/
 Doxygen.log
+port/linux/introspectionclient
+port/linux/secure_mcast_client
+port/linux/client_certification_tests_IDD.cbor
+port/linux/cloud_proxy_IDD.cbor
+port/linux/secure_mcast_server1
+port/linux/secure_mcast_server2
+port/linux/server_certification_tests
+port/linux/server_certification_tests_IDD.cbor
+port/linux/server_rules
+port/linux/server_rules_IDD.cbor
+port/linux/simpleserver-resourcedefaults
+port/linux/smart_home_server_linux_IDD.cbor
