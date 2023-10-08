@@ -260,6 +260,7 @@ fabric.properties
 .github/
 tools/html/
 Doxygen.log
+
 port/linux/introspectionclient
 port/linux/secure_mcast_client
 port/linux/client_certification_tests_IDD.cbor
