@@ -478,7 +478,7 @@ temp_sensor: libiotivity-lite-client.a $(ROOT_DIR)/apps/temp_sensor_client_linux
 
 simpleserver: libiotivity-lite-server.a $(ROOT_DIR)/apps/simpleserver.c
 	@mkdir -p $@_creds
-	${CC} -o $@ ../../apps/simpleserver.c libiotivity-lite-server.a -DOC_SERVER ${CFLAGS}  ${LIBS} ${LIBS}
+	${CC} -o $@ ../../apps/simpleserver.c libiotivity-lite-server.a -DOC_SERVER ${CFLAGS}  ${LIBS}
 
 fasten_server: libiotivity-lite-server.a $(ROOT_DIR)/fasten/fasten_server.c
 	@mkdir -p $@_creds
