@@ -82,8 +82,8 @@ __suseconds64_t time_diff;
 #include <mbedtls/error.h>
 #include <mbedtls/platform.h>
 #elif OC_DBG_IS_ENABLED || OC_ERR_IS_ENABLED || OC_WRN_IS_ENABLED
-  static void
-  mbedtls_strerror(int ret, char *buf, size_t buflen)
+static void
+mbedtls_strerror(int ret, char *buf, size_t buflen)
 {
   snprintf(buf, buflen, "MBEDTLS_ERR(%d)", ret);
 }
@@ -121,7 +121,7 @@ __suseconds64_t time_diff;
 #define TLS_LOG_MBEDTLS_ERROR(mbedtls_func_name, mbedtls_err)
 #endif /* !OC_DBG_IS_ENABLED && !OC_ERR_IS_ENABLED */
 
-  typedef struct oc_random_pin_t
+typedef struct oc_random_pin_t
 {
   oc_random_pin_cb_t cb;
   void *data;
