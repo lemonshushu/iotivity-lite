@@ -11,7 +11,7 @@ static pthread_cond_t cv;
 
 static bool quit = false;
 
-char *rt = NULL;
+static char *rt = NULL;
 
 static int
 app_init(void)
@@ -55,17 +55,20 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
       while (ep != NULL) {
         if (!server && (ep->flags & TCP)) {
           oc_endpoint_list_copy(&server, ep);
+          OC_PRINTipaddr(*ep);
         }
         ep = ep->next;
       }
 
+
       if (!server) {
         OC_PRINTF("ERROR: No TCP endpoint found\n");
+        fflush(stdout);
         return OC_STOP_DISCOVERY;
       }
 
-      if (!oc_do_get(a_fasten, server, NULL, &get_response_handler,
-                     LOW_QOS, NULL)) {
+      if (!oc_do_get(a_fasten, server, NULL, &get_response_handler, LOW_QOS,
+                     NULL)) {
         OC_PRINTF("ERROR: Could not issue GET request\n");
       }
 
@@ -172,7 +175,7 @@ main(int argc, char **argv)
 #endif
 
   if (argc < 2) {
-    OC_PRINTF("Usage: %s <resource-type>\n", argv[0]);
+    OC_PRINTF("Usage: fasten_client <resource-type>\n");
     return -1;
   }
 
