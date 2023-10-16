@@ -592,6 +592,9 @@ process_interface_change_event(void)
                 if (dev == NULL) {
                   continue;
                 }
+                if (dev->mcast4_sock < 0) {
+                  continue;
+                }
                 success = oc_netsocket_add_sock_to_ipv4_mcast_group(
                             dev->mcast4_sock, RTA_DATA(attr), ifa->ifa_index) &&
                           success;
@@ -603,6 +606,9 @@ process_interface_change_event(void)
                 for (size_t i = 0; i < num_devices; i++) {
                   const ip_context_t *dev = oc_get_ip_context_for_device(i);
                   if (dev == NULL) {
+                    continue;
+                  }
+                  if (dev->mcast_sock < 0) {
                     continue;
                   }
                   success = oc_netsocket_add_sock_to_ipv6_mcast_group(
@@ -1179,6 +1185,12 @@ send_ipv4_discovery_request(oc_message_t *message,
   if (setsockopt(server_sock, IPPROTO_IP, IP_MULTICAST_IF, &addr->sin_addr,
                  sizeof(addr->sin_addr)) == -1) {
     OC_ERR("setting socket option for default IP_MULTICAST_IF: %d", (int)errno);
+    return SEND_DISCOVERY_ERROR;
+  }
+  int ttl = OC_IPV4_MULTICAST_TTL;
+  if (setsockopt(server_sock, IPPROTO_IP, IP_MULTICAST_TTL, &ttl,
+                 sizeof(int)) == -1) {
+    OC_ERR("setting socket option for default IP_MULTICAST_TTL: %d", errno);
     return SEND_DISCOVERY_ERROR;
   }
   unsigned if_index = if_nametoindex(interface->ifa_name);
