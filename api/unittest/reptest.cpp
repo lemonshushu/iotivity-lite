@@ -16,16 +16,31 @@
  *
  ******************************************************************/
 
+#include "api/oc_con_resource_internal.h"
+#include "api/oc_rep_decode_internal.h"
 #include "api/oc_rep_encode_internal.h"
-#include "tests/gtest/RepPool.h"
 #include "oc_rep.h"
+#include "port/oc_log_internal.h"
+#include "tests/gtest/Device.h"
+#include "tests/gtest/RepPool.h"
+#include "tests/gtest/Resource.h"
+#include "util/oc_secure_string_internal.h"
 
 #include <array>
+#include <chrono>
 #include <gtest/gtest.h>
 #include <memory>
 #include <stdlib.h>
 #include <string>
 #include <vector>
+
+using namespace std::chrono_literals;
+
+static constexpr size_t kDeviceID{ 0 };
+static const oc_rep_encoder_type_t g_rep_default_encoder =
+  oc_rep_encoder_get_type();
+static const oc_rep_decoder_type_t g_rep_default_decoder =
+  oc_rep_decoder_get_type();
 
 template<class InputIt>
 static std::string
@@ -38,13 +53,28 @@ BufferToString(InputIt first, InputIt last)
   return val;
 }
 
-TEST(TestRep, OCRepEncodedPayloadSize_P)
+class TestRep : public testing::Test {
+public:
+  static void SetUpTestCase()
+  {
+    oc_rep_encoder_set_type(OC_REP_CBOR_ENCODER);
+    oc_rep_decoder_set_type(OC_REP_CBOR_DECODER);
+  }
+
+  static void TearDownTestCase()
+  {
+    oc_rep_encoder_set_type(g_rep_default_encoder);
+    oc_rep_decoder_set_type(g_rep_default_decoder);
+  }
+};
+
+TEST_F(TestRep, OCRepEncodedPayloadSize_P)
 {
   int repSize = oc_rep_get_encoded_payload_size();
   EXPECT_NE(repSize, -1);
 }
 
-TEST(TestRep, OCRepEncodedPayloadSizeTooSmall)
+TEST_F(TestRep, OCRepEncodedPayloadSizeTooSmall)
 {
   /* buffer for oc_rep_t */
   std::array<uint8_t, 10> buf{}; // Purposely small buffer
@@ -60,7 +90,7 @@ TEST(TestRep, OCRepEncodedPayloadSizeTooSmall)
   EXPECT_EQ(-1, oc_rep_get_encoded_payload_size());
 }
 
-TEST(TestRep, RepToJson_null)
+TEST_F(TestRep, RepToJson_null)
 {
   const oc_rep_t *rep = nullptr;
   EXPECT_EQ(2, oc_rep_to_json(rep, nullptr, 0, false));
@@ -76,6 +106,18 @@ TEST(TestRep, RepToJson_null)
 
 class TestRepWithPool : public testing::Test {
 public:
+  static void SetUpTestCase()
+  {
+    oc_rep_encoder_set_type(OC_REP_CBOR_ENCODER);
+    oc_rep_decoder_set_type(OC_REP_CBOR_DECODER);
+  }
+
+  static void TearDownTestCase()
+  {
+    oc_rep_encoder_set_type(g_rep_default_encoder);
+    oc_rep_decoder_set_type(g_rep_default_decoder);
+  }
+
   oc_memb *GetRepObjectsPool() { return pool_.GetRepObjectsPool(); }
 
   oc::oc_rep_unique_ptr ParsePayload() { return pool_.ParsePayload(); }
@@ -98,11 +140,11 @@ private:
 TEST_F(TestRepWithPool, OCRepInvalidFormat)
 {
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_encode_int(&root_map, 42);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   const uint8_t *payload = oc_rep_get_encoder_buf();
@@ -119,19 +161,19 @@ TEST_F(TestRepWithPool, OCRepInvalidFormat)
 TEST_F(TestRepWithPool, OCRepInvalidArray)
 {
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_key(oc_rep_object(root), "mixed");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_begin_array(oc_rep_object(root), mixed);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_int(mixed, 42);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_text_string(mixed, "1337");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_array(oc_rep_object(root), mixed);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   const uint8_t *payload = oc_rep_get_encoder_buf();
@@ -149,11 +191,11 @@ TEST_F(TestRepWithPool, OCRepSetGetNull)
 {
   /* add null value to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_null(root, nothing);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -165,6 +207,9 @@ TEST_F(TestRepWithPool, OCRepSetGetNull)
   /* error handling */
   EXPECT_FALSE(oc_rep_is_null(nullptr, "nothing", &is_null));
   EXPECT_FALSE(oc_rep_is_null(rep.get(), nullptr, &is_null));
+  EXPECT_FALSE(oc_rep_is_null(rep.get(), "", &is_null));
+  EXPECT_FALSE(oc_rep_is_null(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &is_null));
   EXPECT_FALSE(oc_rep_is_null(rep.get(), "nothing", nullptr));
   EXPECT_FALSE(oc_rep_is_null(rep.get(), "not_the_key", &is_null));
 
@@ -174,13 +219,13 @@ TEST_F(TestRepWithPool, OCRepSetGetNull)
 
 TEST_F(TestRepWithPool, OCRepSetGetDouble)
 {
-  /* add int values to root object */
+  /* add double values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_double(root, pi, 3.14159);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -190,9 +235,13 @@ TEST_F(TestRepWithPool, OCRepSetGetDouble)
   double pi_out = 0;
   EXPECT_TRUE(oc_rep_get_double(rep.get(), "pi", &pi_out));
   EXPECT_EQ(3.14159, pi_out);
+
   /* error handling */
   EXPECT_FALSE(oc_rep_get_double(nullptr, "pi", &pi_out));
   EXPECT_FALSE(oc_rep_get_double(rep.get(), nullptr, &pi_out));
+  EXPECT_FALSE(oc_rep_get_double(rep.get(), "", &pi_out));
+  EXPECT_FALSE(oc_rep_get_double(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &pi_out));
   EXPECT_FALSE(oc_rep_get_double(rep.get(), "pi", nullptr));
   EXPECT_FALSE(oc_rep_get_double(rep.get(), "no_a_key", &pi_out));
 
@@ -204,21 +253,25 @@ TEST_F(TestRepWithPool, OCRepSetGetInt)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_int(root, ultimate_answer, 10000000000);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_int(root, negative, -1024);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_int(root, zero, 0);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  oc_rep_set_int(root, max_positive, INT64_MAX);
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  oc_rep_set_int(root, max_negative, INT64_MIN);
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
   ASSERT_NE(nullptr, rep.get());
 
-  /* read the values from  the oc_rep_t */
+  /* read the values from the oc_rep_t */
   int64_t ultimate_answer_out = 0;
   EXPECT_TRUE(
     oc_rep_get_int(rep.get(), "ultimate_answer", &ultimate_answer_out));
@@ -229,19 +282,31 @@ TEST_F(TestRepWithPool, OCRepSetGetInt)
   int64_t zero_out = -1;
   EXPECT_TRUE(oc_rep_get_int(rep.get(), "zero", &zero_out));
   EXPECT_EQ(0, zero_out);
+  int64_t max_positive_out = 0;
+  EXPECT_TRUE(oc_rep_get_int(rep.get(), "max_positive", &max_positive_out));
+  EXPECT_EQ(INT64_MAX, max_positive_out);
+  int64_t max_negative_out = 0;
+  EXPECT_TRUE(oc_rep_get_int(rep.get(), "max_negative", &max_negative_out));
+  EXPECT_EQ(INT64_MIN, max_negative_out);
+
   /* check error handling */
   EXPECT_FALSE(oc_rep_get_int(nullptr, "zero", &zero_out));
   EXPECT_FALSE(oc_rep_get_int(rep.get(), nullptr, &zero_out));
+  EXPECT_FALSE(oc_rep_get_int(rep.get(), "", &zero_out));
+  EXPECT_FALSE(oc_rep_get_int(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &zero_out));
   EXPECT_FALSE(oc_rep_get_int(rep.get(), "zero", nullptr));
   EXPECT_FALSE(oc_rep_get_int(rep.get(), "not_a_key", &zero_out));
 
   std::string json =
-    R"({"ultimate_answer":10000000000,"negative":-1024,"zero":0})";
+    R"({"ultimate_answer":10000000000,"negative":-1024,"zero":0,"max_positive":9223372036854775807,"max_negative":-9223372036854775808})";
   CheckJson(rep.get(), json, false);
   std::string pretty_json = "{\n"
                             "  \"ultimate_answer\" : 10000000000,\n"
                             "  \"negative\" : -1024,\n"
-                            "  \"zero\" : 0\n"
+                            "  \"zero\" : 0,\n"
+                            "  \"max_positive\" : 9223372036854775807,\n"
+                            "  \"max_negative\" : -9223372036854775808\n"
                             "}\n";
   CheckJson(rep.get(), pretty_json, true);
 }
@@ -262,20 +327,20 @@ TEST_F(TestRepWithPool, OCRepSetGetUint)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_uint(root, ultimate_answer, 42);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   /*
    * Assuming 32 bit int, which should be true for systems the gtest will
    * be running on, the largest value for 32 bit int is 2,147,483,647 or
    * 0x7FFFFFFF
    */
   oc_rep_set_uint(root, larger_than_int, 3000000000);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_uint(root, zero, 0);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -294,9 +359,13 @@ TEST_F(TestRepWithPool, OCRepSetGetUint)
   int64_t zero_out = -1;
   EXPECT_TRUE(oc_rep_get_int(rep.get(), "zero", &zero_out));
   EXPECT_EQ(0u, (unsigned)zero_out);
+
   /* check error handling */
   EXPECT_FALSE(oc_rep_get_int(nullptr, "zero", &zero_out));
   EXPECT_FALSE(oc_rep_get_int(rep.get(), nullptr, &zero_out));
+  EXPECT_FALSE(oc_rep_get_int(rep.get(), "", &zero_out));
+  EXPECT_FALSE(oc_rep_get_int(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &zero_out));
   EXPECT_FALSE(oc_rep_get_int(rep.get(), "zero", nullptr));
   EXPECT_FALSE(oc_rep_get_int(rep.get(), "not_a_key", &zero_out));
 
@@ -316,13 +385,13 @@ TEST_F(TestRepWithPool, OCRepSetGetBool)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_boolean(root, true_flag, true);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_boolean(root, false_flag, false);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -335,9 +404,13 @@ TEST_F(TestRepWithPool, OCRepSetGetBool)
   bool false_flag_out = true;
   EXPECT_TRUE(oc_rep_get_bool(rep.get(), "false_flag", &false_flag_out));
   EXPECT_FALSE(false_flag_out);
+
   /* check error handling */
   EXPECT_FALSE(oc_rep_get_bool(nullptr, "true_flag", &true_flag_out));
   EXPECT_FALSE(oc_rep_get_bool(rep.get(), nullptr, &true_flag_out));
+  EXPECT_FALSE(oc_rep_get_bool(rep.get(), "", &true_flag_out));
+  EXPECT_FALSE(oc_rep_get_bool(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &true_flag_out));
   EXPECT_FALSE(oc_rep_get_bool(rep.get(), "true_flag", nullptr));
   EXPECT_FALSE(oc_rep_get_bool(rep.get(), "not_a_key", &true_flag_out));
 
@@ -366,16 +439,16 @@ TEST_F(TestRepWithPool, OCRepSetGetTextString)
 {
   /* add text string value "hal9000":"Dave" to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(root, empty, "");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(root, hal9000, "Dave");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   /* test utf8 character support "hello world" in russian */
   oc_rep_set_text_string(root, ru_character_set, "Привет, мир");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -399,9 +472,14 @@ TEST_F(TestRepWithPool, OCRepSetGetTextString)
    * calculate the the number of bytes using the strlen function.
    */
   EXPECT_EQ(strlen("Привет, мир"), str_len);
+
   /* check error handling */
   EXPECT_FALSE(oc_rep_get_string(nullptr, "hal9000", &hal9000_out, &str_len));
   EXPECT_FALSE(oc_rep_get_string(rep.get(), nullptr, &hal9000_out, &str_len));
+  EXPECT_FALSE(oc_rep_get_string(rep.get(), "", &hal9000_out, &str_len));
+  EXPECT_FALSE(oc_rep_get_string(rep.get(),
+                                 std::string(OC_MAX_STRING_LENGTH, 'k').c_str(),
+                                 &hal9000_out, &str_len));
   EXPECT_FALSE(oc_rep_get_string(rep.get(), "hal9000", nullptr, &str_len));
   EXPECT_FALSE(oc_rep_get_string(rep.get(), "hal9000", &hal9000_out, nullptr));
   EXPECT_FALSE(
@@ -426,15 +504,15 @@ TEST_F(TestRepWithPool, OCRepSetGetByteString)
 {
   /* add text string value "hal9000":"Dave" to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_byte_string(root, empty_byte_string, nullptr, 0);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   const uint8_t test_byte_string[] = { 0x01, 0x02, 0x03, 0x04, 0x02, 0x00 };
   oc_rep_set_byte_string(root, test_byte_string, test_byte_string,
                          sizeof(test_byte_string));
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -455,11 +533,17 @@ TEST_F(TestRepWithPool, OCRepSetGetByteString)
    * through the array.
    */
   EXPECT_STREQ((const char *)test_byte_string, test_byte_string_out);
+
   /* error handling */
   EXPECT_FALSE(oc_rep_get_byte_string(nullptr, "test_byte_string",
                                       &test_byte_string_out, &str_len));
   EXPECT_FALSE(oc_rep_get_byte_string(rep.get(), nullptr, &test_byte_string_out,
                                       &str_len));
+  EXPECT_FALSE(
+    oc_rep_get_byte_string(rep.get(), "", &test_byte_string_out, &str_len));
+  EXPECT_FALSE(oc_rep_get_byte_string(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(),
+    &test_byte_string_out, &str_len));
   EXPECT_FALSE(
     oc_rep_get_byte_string(rep.get(), "test_byte_string", nullptr, &str_len));
   EXPECT_FALSE(oc_rep_get_byte_string(rep.get(), "test_byte_string",
@@ -513,14 +597,14 @@ TEST_F(TestRepWithPool, OCRepSetGetIntArray)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   std::vector<int64_t> fib = {
     1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 10000000000
   };
   oc_rep_set_int_array(root, fibonacci, fib.data(), fib.size());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -528,7 +612,7 @@ TEST_F(TestRepWithPool, OCRepSetGetIntArray)
 
   /* read the values from the oc_rep_t */
   int64_t *fib_out = nullptr;
-  size_t fib_len;
+  size_t fib_len = 0;
   EXPECT_TRUE(oc_rep_get_int_array(rep.get(), "fibonacci", &fib_out, &fib_len));
   ASSERT_EQ(fib.size(), fib_len);
   for (size_t i = 0; i < fib_len; ++i) {
@@ -560,19 +644,18 @@ TEST_F(TestRepWithPool, OCRepAddGetIntArray)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   std::vector<int64_t> fib = { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 };
-
   oc_rep_open_array(root, fibonacci);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   for (const auto &v : fib) {
     oc_rep_add_int(fibonacci, v);
-    EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+    ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   }
   oc_rep_close_array(root, fibonacci);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -580,7 +663,7 @@ TEST_F(TestRepWithPool, OCRepAddGetIntArray)
 
   /* read the values from the oc_rep_t */
   int64_t *fib_out = nullptr;
-  size_t fib_len;
+  size_t fib_len = 0;
   EXPECT_TRUE(oc_rep_get_int_array(rep.get(), "fibonacci", &fib_out, &fib_len));
   ASSERT_EQ(fib.size(), fib_len);
   for (size_t i = 0; i < fib_len; ++i) {
@@ -604,20 +687,20 @@ TEST_F(TestRepWithPool, OCRepAddGetIntArrayUsingSetKeyAndBeginArray)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   std::vector<int64_t> fib = { 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89 };
   oc_rep_set_key(oc_rep_object(root), "fibonacci");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_begin_array(oc_rep_object(root), fibonacci);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   for (const auto &v : fib) {
     oc_rep_add_int(fibonacci, v);
-    EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+    ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   }
   oc_rep_end_array(oc_rep_object(root), fibonacci);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -625,7 +708,7 @@ TEST_F(TestRepWithPool, OCRepAddGetIntArrayUsingSetKeyAndBeginArray)
 
   /* read the values from the oc_rep_t */
   int64_t *fib_out = nullptr;
-  size_t fib_len;
+  size_t fib_len = 0;
   EXPECT_TRUE(oc_rep_get_int_array(rep.get(), "fibonacci", &fib_out, &fib_len));
   ASSERT_EQ(fib.size(), fib_len);
   for (size_t i = 0; i < fib_len; ++i) {
@@ -650,10 +733,11 @@ TEST_F(TestRepWithPool, OCRepSetGetEmptyBoolArray)
   */
   /* add values to root object */
   oc_rep_start_root_object();
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_bool_array(root, emptyBool, (bool *)nullptr, 0);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -667,12 +751,12 @@ TEST_F(TestRepWithPool, OCRepSetGetBoolArray)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   std::array<bool, 5> flip = { false, false, true, false, false };
   oc_rep_set_bool_array(root, flip, flip.data(), flip.size());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -680,7 +764,7 @@ TEST_F(TestRepWithPool, OCRepSetGetBoolArray)
 
   /* read the values from the oc_rep_t */
   bool *flip_out = nullptr;
-  size_t flip_len;
+  size_t flip_len = 0;
   EXPECT_TRUE(oc_rep_get_bool_array(rep.get(), "flip", &flip_out, &flip_len));
   ASSERT_EQ(flip.size(), flip_len);
   for (size_t i = 0; i < flip_len; ++i) {
@@ -690,6 +774,10 @@ TEST_F(TestRepWithPool, OCRepSetGetBoolArray)
   /* Error handling */
   EXPECT_FALSE(oc_rep_get_bool_array(nullptr, "flip", &flip_out, &flip_len));
   EXPECT_FALSE(oc_rep_get_bool_array(rep.get(), nullptr, &flip_out, &flip_len));
+  EXPECT_FALSE(oc_rep_get_bool_array(rep.get(), "", &flip_out, &flip_len));
+  EXPECT_FALSE(oc_rep_get_bool_array(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &flip_out,
+    &flip_len));
   EXPECT_FALSE(oc_rep_get_bool_array(rep.get(), "flip", nullptr, &flip_len));
   EXPECT_FALSE(oc_rep_get_bool_array(rep.get(), "flip", &flip_out, nullptr));
   EXPECT_FALSE(
@@ -711,18 +799,18 @@ TEST_F(TestRepWithPool, OCRepAddGetBoolArray)
 {
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   std::array<bool, 5> flip = { false, false, true, false, false };
   oc_rep_open_array(root, flip);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   for (const auto &v : flip) {
     oc_rep_add_boolean(flip, v);
-    EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+    ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   }
   oc_rep_close_array(root, flip);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -730,7 +818,7 @@ TEST_F(TestRepWithPool, OCRepAddGetBoolArray)
 
   /* read the values from the oc_rep_t */
   bool *flip_out = nullptr;
-  size_t flip_len;
+  size_t flip_len = 0;
   EXPECT_TRUE(oc_rep_get_bool_array(rep.get(), "flip", &flip_out, &flip_len));
   ASSERT_EQ(flip.size(), flip_len);
   for (size_t i = 0; i < flip_len; ++i) {
@@ -868,13 +956,13 @@ TEST_F(TestRepWithPool, OCRepSetGetEmptyObject)
   */
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_open_object(root, empty);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_object(root, empty);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -896,20 +984,21 @@ TEST_F(TestRepWithPool, OCRepSetGetObject)
    * }
    */
   /* add values to root object */
+  std::string c_value = "three";
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_object(root, my_object);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_int(my_object, a, 1);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_boolean(my_object, b, false);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
-  oc_rep_set_text_string(my_object, c, "three");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  oc_rep_set_text_string(my_object, c, c_value.c_str());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_object(root, my_object);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -918,7 +1007,7 @@ TEST_F(TestRepWithPool, OCRepSetGetObject)
   /* read the values from the oc_rep_t */
   oc_rep_t *my_object_out = nullptr;
   EXPECT_TRUE(oc_rep_get_object(rep.get(), "my_object", &my_object_out));
-  ASSERT_TRUE(my_object_out != nullptr);
+  ASSERT_NE(nullptr, my_object_out);
   int64_t a_out;
   EXPECT_TRUE(oc_rep_get_int(my_object_out, "a", &a_out));
   EXPECT_EQ(1, a_out);
@@ -928,8 +1017,17 @@ TEST_F(TestRepWithPool, OCRepSetGetObject)
   char *c_out = nullptr;
   size_t c_out_size = 0;
   EXPECT_TRUE(oc_rep_get_string(my_object_out, "c", &c_out, &c_out_size));
-  EXPECT_EQ(5, c_out_size);
-  EXPECT_STREQ("three", c_out);
+  EXPECT_EQ(c_value.length(), c_out_size);
+  EXPECT_STREQ(c_value.c_str(), c_out);
+
+  /* Error handling */
+  EXPECT_FALSE(oc_rep_get_object(nullptr, "my_object", &my_object_out));
+  EXPECT_FALSE(oc_rep_get_object(rep.get(), nullptr, &my_object_out));
+  EXPECT_FALSE(oc_rep_get_object(rep.get(), "", &my_object_out));
+  EXPECT_FALSE(oc_rep_get_object(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &my_object_out));
+  EXPECT_FALSE(oc_rep_get_object(rep.get(), "my_object", nullptr));
+  EXPECT_FALSE(oc_rep_get_object(rep.get(), "not_a_key", &my_object_out));
 
   std::string json = R"({"my_object":{"a":1,"b":false,"c":"three"}})";
   CheckJson(rep.get(), json, false);
@@ -949,11 +1047,11 @@ static int
 oc_rep_encode_tagged_string(CborEncoder *encoder, CborTag tag,
                             const std::string &key, const std::string &value)
 {
-  oc_rep_encoder_convert_offset_to_ptr(encoder);
+  oc_rep_encoder_convert_offset_to_ptr(oc_rep_global_encoder(), encoder);
   int err = cbor_encode_text_string(encoder, key.c_str(), key.length());
   err |= cbor_encode_tag(encoder, tag);
   err |= cbor_encode_text_string(encoder, value.c_str(), value.length());
-  oc_rep_encoder_convert_ptr_to_offset(encoder);
+  oc_rep_encoder_convert_ptr_to_offset(oc_rep_global_encoder(), encoder);
   return err;
 }
 
@@ -1004,13 +1102,13 @@ TEST_F(TestRepWithPool, OCRepSetGetEmptyObjectArray)
   */
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_open_array(root, emptyObj);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_array(root, emptyObj);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -1032,41 +1130,41 @@ TEST_F(TestRepWithPool, OCRepSetGetObjectArray)
    */
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_array(root, space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   oc_rep_object_array_start_item(space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(space_2001, name, "Dave Bowman");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(space_2001, job, "astronaut");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_end_item(space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   oc_rep_object_array_start_item(space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(space_2001, name, "Frank Poole");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(space_2001, job, "astronaut");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_end_item(space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   oc_rep_object_array_start_item(space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(space_2001, name, "Hal 9000");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(space_2001, job, "AI computer");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_end_item(space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   oc_rep_close_array(root, space_2001);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -1118,6 +1216,17 @@ TEST_F(TestRepWithPool, OCRepSetGetObjectArray)
   EXPECT_EQ(strlen("AI computer"), job_out_size);
   EXPECT_STREQ("AI computer", job_out);
 
+  /* Error handling */
+  EXPECT_FALSE(oc_rep_get_object_array(nullptr, "space_2001", &space_2001_out));
+  EXPECT_FALSE(oc_rep_get_object_array(rep.get(), nullptr, &space_2001_out));
+  EXPECT_FALSE(oc_rep_get_object_array(rep.get(), "", &space_2001_out));
+  EXPECT_FALSE(oc_rep_get_object_array(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(),
+    &space_2001_out));
+  EXPECT_FALSE(oc_rep_get_object_array(rep.get(), "space_2001", nullptr));
+  EXPECT_FALSE(
+    oc_rep_get_object_array(rep.get(), "not_a_key", &space_2001_out));
+
   std::string json =
     R"({"space_2001":[{"name":"Dave Bowman","job":"astronaut"},)"
     R"({"name":"Frank Poole","job":"astronaut"},)"
@@ -1154,21 +1263,21 @@ TEST_F(TestRepWithPool, OCRepAddGetByteStringArray)
 
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_array(root, barray);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_byte_string(barray, ba1.data(), ba1.size());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_byte_string(barray, ba2.data(), ba2.size());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_byte_string(barray, ba3.data(), ba3.size());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_byte_string(barray, ba4.data(), ba4.size());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_array(root, barray);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -1181,10 +1290,16 @@ TEST_F(TestRepWithPool, OCRepAddGetByteStringArray)
                                            &barray_len));
   ASSERT_EQ(4, barray_len);
 
+  /* Error handling */
   EXPECT_FALSE(
     oc_rep_get_byte_string_array(nullptr, "barray", &barray_out, &barray_len));
   EXPECT_FALSE(
     oc_rep_get_byte_string_array(rep.get(), nullptr, &barray_out, &barray_len));
+  EXPECT_FALSE(
+    oc_rep_get_byte_string_array(rep.get(), "", &barray_out, &barray_len));
+  EXPECT_FALSE(oc_rep_get_byte_string_array(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &barray_out,
+    &barray_len));
   EXPECT_FALSE(
     oc_rep_get_byte_string_array(rep.get(), "barray", nullptr, &barray_len));
   EXPECT_FALSE(
@@ -1231,12 +1346,12 @@ TEST_F(TestRepWithPool, OCRepSetGetEmptyStringArray)
   */
   /* add values to root object */
   oc_rep_begin_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_string_array_t emptyStr{};
   oc_rep_set_string_array(root, emptyStr, emptyStr);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
@@ -1275,11 +1390,11 @@ TEST_F(TestRepWithPool, OCRepSetGetStringArray)
   EXPECT_TRUE(oc_string_array_add_item(quotes, STR3.c_str()));
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_string_array(root, quotes, quotes);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_free_string_array(&quotes);
 
   /* convert CborEncoder to oc_rep_t */
@@ -1287,8 +1402,8 @@ TEST_F(TestRepWithPool, OCRepSetGetStringArray)
   ASSERT_NE(nullptr, rep.get());
 
   /* read the values from the oc_rep_t */
-  oc_string_array_t quotes_out;
-  size_t quotes_len;
+  oc_string_array_t quotes_out{};
+  size_t quotes_len = 0;
   EXPECT_TRUE(
     oc_rep_get_string_array(rep.get(), "quotes", &quotes_out, &quotes_len));
   ASSERT_EQ(4, quotes_len);
@@ -1298,6 +1413,11 @@ TEST_F(TestRepWithPool, OCRepSetGetStringArray)
     oc_rep_get_string_array(nullptr, "quotes", &quotes_out, &quotes_len));
   EXPECT_FALSE(
     oc_rep_get_string_array(rep.get(), nullptr, &quotes_out, &quotes_len));
+  EXPECT_FALSE(
+    oc_rep_get_string_array(rep.get(), "", &quotes_out, &quotes_len));
+  EXPECT_FALSE(oc_rep_get_string_array(
+    rep.get(), std::string(OC_MAX_STRING_LENGTH, 'k').c_str(), &quotes_out,
+    &quotes_len));
   EXPECT_FALSE(
     oc_rep_get_string_array(rep.get(), "quotes", nullptr, &quotes_len));
   EXPECT_FALSE(
@@ -1356,42 +1476,32 @@ TEST_F(TestRepWithPool, OCRepAddGetStringArray)
 
   /* add values to root object */
   oc_rep_start_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_open_array(root, quotes);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_text_string(quotes, STR0.c_str());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_text_string(quotes, STR1.c_str());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_text_string(quotes, STR2.c_str());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_add_text_string(quotes, STR3.c_str());
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_array(root, quotes);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_root_object();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
 
   /* convert CborEncoder to oc_rep_t */
   oc::oc_rep_unique_ptr rep = ParsePayload();
   ASSERT_NE(nullptr, rep.get());
 
   /* read the values from the oc_rep_t */
-  oc_string_array_t quotes_out;
-  size_t quotes_len;
+  oc_string_array_t quotes_out{};
+  size_t quotes_len = 0;
   EXPECT_TRUE(
     oc_rep_get_string_array(rep.get(), "quotes", &quotes_out, &quotes_len));
   ASSERT_EQ(4, quotes_len);
-
-  /* Error handling */
-  EXPECT_FALSE(
-    oc_rep_get_string_array(nullptr, "quotes", &quotes_out, &quotes_len));
-  EXPECT_FALSE(
-    oc_rep_get_string_array(rep.get(), nullptr, &quotes_out, &quotes_len));
-  EXPECT_FALSE(
-    oc_rep_get_string_array(rep.get(), "quotes", nullptr, &quotes_len));
-  EXPECT_FALSE(
-    oc_rep_get_string_array(rep.get(), "quotes", &quotes_out, nullptr));
 
   EXPECT_EQ(STR0.length(), oc_string_array_get_item_size(quotes_out, 0));
   EXPECT_STREQ(STR0.c_str(), oc_string_array_get_item(quotes_out, 0));
@@ -1403,11 +1513,11 @@ TEST_F(TestRepWithPool, OCRepAddGetStringArray)
   EXPECT_STREQ(STR3.c_str(), oc_string_array_get_item(quotes_out, 3));
 
   // clang-format off
-  std::string json = "{\"quotes\":"
-                     "[\"" + STR0 + "\","
-                     "\"" + STR1 + "\","
-                     "\"" + STR2 + "\","
-                     "\"" + STR3 + "\"]}";
+  std::string json = R"({"quotes":)"
+                     R"([")" + STR0 + R"(",)"
+                     R"(")" + STR1 + R"(",)"
+                     R"(")" + STR2 + R"(",)"
+                     R"(")" + STR3 + R"("]})";
   // clang-format on                      
   CheckJson(rep.get(), json, false);
   // clang-format off  
@@ -1431,31 +1541,31 @@ TEST_F(TestRepWithPool, OCRepRootArrayObject)
    */
   /* add values to root object */
   oc_rep_start_links_array();
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_start_item(links);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(links, href, "/light/1");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_object(links, rep);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_boolean(rep, state, true);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_object(links, rep);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_end_item(links);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_start_item(links);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_text_string(links, href, "/count/1");
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_object(links, rep);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_set_int(rep, count, 100);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_close_object(links, rep);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_object_array_end_item(links);
-  EXPECT_EQ(CborNoError, oc_rep_get_cbor_errno());
+  ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   oc_rep_end_links_array();
 
   /* convert CborEncoder to oc_rep_t */
@@ -1469,6 +1579,7 @@ TEST_F(TestRepWithPool, OCRepRootArrayObject)
   EXPECT_EQ(OC_REP_OBJECT, rep->type);
   oc_rep_t *links = rep.get();
   ASSERT_TRUE(links != nullptr);
+
   char *href_out = nullptr;
   size_t href_out_size = 0;
   oc_rep_t *rep_out = nullptr;
@@ -1518,3 +1629,54 @@ TEST_F(TestRepWithPool, OCRepRootArrayObject)
                             "]\n";
   CheckJson(rep.get(), pretty_json, true);
 }
+
+#if !defined(OC_SECURITY) || defined(OC_HAS_FEATURE_RESOURCE_ACCESS_IN_RFOTM)
+
+class TestRepWithServer : public testing::Test {
+public:
+  static void SetUpTestCase()
+  {
+    oc_set_con_res_announced(true);
+    ASSERT_TRUE(oc::TestDevice::StartServer());
+#ifdef OC_HAS_FEATURE_RESOURCE_ACCESS_IN_RFOTM
+    ASSERT_TRUE(oc::SetAccessInRFOTM(OCF_CON, kDeviceID, false,
+                                     OC_PERM_RETRIEVE | OC_PERM_UPDATE));
+#endif /* OC_HAS_FEATURE_RESOURCE_ACCESS_IN_RFOTM */
+  }
+
+  static void TearDownTestCase()
+  {
+    oc::TestDevice::StopServer();
+  }
+};
+
+TEST_F(TestRepWithServer, EncodePostPayload)
+{
+  constexpr std::string_view kNewName = "IoTivity Test Server";
+
+  auto epOpt = oc::TestDevice::GetEndpoint(kDeviceID);
+  ASSERT_TRUE(epOpt.has_value());
+  auto ep = std::move(*epOpt);
+
+  auto post_handler = [](oc_client_response_t *data) {
+    EXPECT_EQ(OC_STATUS_CHANGED, data->code);
+    oc::TestDevice::Terminate();
+    OC_DBG("POST payload: %s", oc::RepPool::GetJson(data->payload).data());
+    *static_cast<bool *>(data->user_data) = true;
+  };
+
+  bool invoked = false;
+  oc_init_post(OC_CON_URI, &ep, nullptr, post_handler, HIGH_QOS, &invoked);
+
+  oc_rep_start_root_object();
+  oc_rep_set_text_string_v1(root, n, kNewName.data(), kNewName.length());
+  oc_rep_end_root_object();
+
+  auto timeout = 1s;
+  ASSERT_TRUE(oc_do_post_with_timeout(timeout.count()));
+
+  oc::TestDevice::PoolEventsMsV1(timeout, true);
+  ASSERT_TRUE(invoked);
+}
+
+#endif /* !OC_SECURITY || OC_HAS_FEATURE_RESOURCE_ACCESS_IN_RFOTM */

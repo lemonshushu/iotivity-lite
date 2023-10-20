@@ -16,6 +16,7 @@
  *
  ****************************************************************************/
 
+#include "api/oc_rep_internal.h"
 #include "oc_runtime_internal.h"
 #include "port/oc_random.h"
 #include "port/oc_clock.h"

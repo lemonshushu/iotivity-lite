@@ -16,6 +16,7 @@ export OSCORE ?= 1
 INTROSPECTION ?= 1
 export IDD ?= 1
 export ETAG ?= 0
+export JSON_ENCODER ?= 0
 DESTDIR ?= /usr/local
 install_bin_dir?=${DESTDIR}/opt/iotivity-lite/bin/
 prefix = $(DESTDIR)
@@ -55,9 +56,12 @@ COMMON_TEST_SRC_FILES := $(wildcard $(COMMON_TEST_DIR)/*.cpp $(COMMON_TEST_TLS_D
 COMMON_TEST_OBJ_FILES := $(patsubst $(COMMON_TEST_DIR)/%.cpp,$(COMMON_TEST_OBJ_DIR)/%.o,$(COMMON_TEST_SRC_FILES))
 COMMON_TEST_OBJ_FILES := $(patsubst $(COMMON_TEST_TLS_DIR)/%.cpp,$(COMMON_TEST_OBJ_DIR)/%.o, $(COMMON_TEST_OBJ_FILES))
 API_TEST_DIR = $(ROOT_DIR)/api/unittest
+API_TEST_ENCODER_DIR = $(ROOT_DIR)/api/unittest/encoder
 API_TEST_OBJ_DIR = $(API_TEST_DIR)/obj
-API_TEST_SRC_FILES := $(wildcard $(API_TEST_DIR)/*.cpp)
+API_TEST_ENCODER_OBJ_DIR = $(API_TEST_DIR)/encoder/obj
+API_TEST_SRC_FILES := $(wildcard $(API_TEST_DIR)/*.cpp $(API_TEST_ENCODER_DIR)/*.cpp)
 API_TEST_OBJ_FILES := $(patsubst $(API_TEST_DIR)/%.cpp,$(API_TEST_OBJ_DIR)/%.o,$(API_TEST_SRC_FILES))
+API_TEST_OBJ_FILES := $(patsubst $(API_TEST_ENCODER_DIR)/%.cpp,$(API_TEST_ENCODER_OBJ_DIR)/%.o,$(API_TEST_OBJ_FILES))
 SECURITY_TEST_DIR = $(ROOT_DIR)/security/unittest
 SECURITY_TEST_OBJ_DIR = $(SECURITY_TEST_DIR)/obj
 SECURITY_TEST_SRC_FILES := $(wildcard $(SECURITY_TEST_DIR)/*.cpp)
@@ -121,6 +125,9 @@ SRC_UTIL:=$(filter-out %_mem_trace.c,$(wildcard ../../util/*.c))
 else
 SRC_UTIL:=$(wildcard ../../util/*.c)
 endif
+ifeq ($(JSON_ENCODER),1)
+SRC_UTIL+=$(wildcard ../../util/jsmn/*.c)
+endif
 SRC_COMMON:=${CBOR} ${CTIMESTAMP} ${SRC_PORT_COMMON} ${SRC_UTIL}
 SRC_API:=$(wildcard ../../api/*.c)
 ifneq ($(INTROSPECTION),1)
@@ -128,6 +135,9 @@ SRC_API:=$(filter-out %oc_introspection.c,${SRC_API})
 endif
 ifneq ($(ETAG),1)
 SRC_API:=$(filter-out %oc_etag.c,${SRC_API})
+endif
+ifneq ($(JSON_ENCODER),1)
+SRC_API:=$(filter-out %oc_rep_decode_json.c %oc_rep_encode_json.c,${SRC_API})
 endif
 SRC:=${SRC_API} $(wildcard ../../messaging/coap/*.c ../../port/linux/*.c)
 SRC_CLIENT:=$(wildcard ../../api/client/*.c)
@@ -167,7 +177,10 @@ OBJ_PYTHON=$(addprefix obj/python/,$(notdir $(SRC_PYTHON:.c=.o)))
 # $(info    OBJ_PYTHON is $(OBJ_PYTHON))
 # $(info    SRC_PYTHON is $(SRC_PYTHON))
 
-VPATH=../../api/:../../api/client/:../../api/cloud/:../../api/c-timestamp:../../messaging/coap/:../../port/common/:../../port/common/posix/:../../python/:../../util/:
+VPATH=../../api/:../../api/client/:../../api/cloud/:../../api/c-timestamp:../../messaging/coap/:
+VPATH+=../../port/common/:../../port/common/posix/:
+VPATH+=../../python/:
+VPATH+=../../util/:../../util/jsmn/:
 VPATH+=../../deps/tinycbor/src/:../../deps/mbedtls/library:
 LIBS?= -lm -pthread -lrt
 
@@ -306,6 +319,10 @@ ifeq ($(ETAG),1)
 	EXTRA_CFLAGS += -DOC_ETAG
 endif
 
+ifeq ($(JSON_ENCODER),1)
+	EXTRA_CFLAGS += -DOC_JSON_ENCODER
+endif
+
 # DPP-baesd Streamlined Onboarding applications
 SO_DPP_SAMPLES = speaker_server speaker_client dpp_diplomat
 SO_DPP_OBJ = obj/ocf_dpp.o
@@ -357,6 +374,10 @@ $(COMMON_TEST_TLS_OBJ_DIR)/%.o: $(COMMON_TEST_TLS_DIR)/%.cpp
 	$(CXX) $(GTEST_CPPFLAGS) $(TEST_CXXFLAGS) $(EXTRA_CFLAGS) $(HEADER_DIR) -I$(ROOT_DIR)/deps/tinycbor/src -c $< -o $@
 
 $(API_TEST_OBJ_DIR)/%.o: $(API_TEST_DIR)/%.cpp
+	@mkdir -p ${@D}
+	$(CXX) $(GTEST_CPPFLAGS) $(TEST_CXXFLAGS) $(EXTRA_CFLAGS) $(HEADER_DIR) -c $< -o $@
+
+$(API_TEST_ENCODER_OBJ_DIR)/%.o: $(API_TEST_ENCODER_DIR)/%.cpp
 	@mkdir -p ${@D}
 	$(CXX) $(GTEST_CPPFLAGS) $(TEST_CXXFLAGS) $(EXTRA_CFLAGS) $(HEADER_DIR) -c $< -o $@
 
@@ -668,7 +689,7 @@ endif
 
 clean:
 	rm -rf obj $(PC) $(CONSTRAINED_LIBS) $(COMMON_TEST_OBJ_FILES) $(API_TEST_OBJ_FILES) $(SECURITY_TEST_OBJ_FILES) $(PLATFORM_TEST_OBJ_FILES) $(MESSAGING_TEST_OBJ_FILES) $(UNIT_TESTS) $(STORAGE_TEST_DIR) $(CLOUD_TEST_OBJ_FILES) $(CLOUD_TEST_STORAGE_DIR) $(RD_CLIENT_TEST_OBJ_FILES)
-	rm -rf $(COMMON_TEST_OBJ_DIR)/*.gcda $(COMMON_TEST_TLS_OBJ_DIR)/*.gcda  $(API_TEST_OBJ_DIR)/*.gcda $(SECURITY_TEST_OBJ_DIR)/*.gcda $(PLATFORM_TEST_OBJ_DIR)/*.gcda $(MESSAGING_TEST_OBJ_DIR)/*.gcda
+	rm -rf $(COMMON_TEST_OBJ_DIR)/*.gcda $(COMMON_TEST_TLS_OBJ_DIR)/*.gcda $(API_TEST_OBJ_DIR)/*.gcda $(API_TEST_ENCODER_OBJ_DIR)/*.gcda $(SECURITY_TEST_OBJ_DIR)/*.gcda $(PLATFORM_TEST_OBJ_DIR)/*.gcda $(MESSAGING_TEST_OBJ_DIR)/*.gcda
 	rm -rf pki_certs smart_home_server_linux_IDD.cbor server_certification_tests_IDD.cbor client_certification_tests_IDD.cbor server_rules_IDD.cbor cloud_proxy_IDD.cbor
 
 cleanall: clean

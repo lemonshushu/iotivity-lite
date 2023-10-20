@@ -20,6 +20,9 @@
 #include "api/oc_events_internal.h"
 #include "api/oc_message_buffer_internal.h"
 #include "api/oc_network_events_internal.h"
+#include "api/oc_rep_encode_internal.h"
+#include "api/oc_rep_decode_internal.h"
+#include "api/oc_ri_internal.h"
 #include "messaging/coap/coap_internal.h"
 #include "messaging/coap/coap_options.h"
 #include "messaging/coap/constants.h"
@@ -117,7 +120,7 @@ OC_MEMB(g_resource_default_s, oc_resource_defaults_data_t,
         OC_MAX_APP_RESOURCES);
 #endif /* OC_SERVER */
 
-static unsigned int oc_coap_status_codes[__NUM_OC_STATUS_CODES__];
+static coap_status_t oc_coap_status_codes[__NUM_OC_STATUS_CODES__] = { 0 };
 
 static const char *oc_status_strs[] = {
   "OC_STATUS_OK",                       /* 0 */
@@ -143,7 +146,7 @@ static const char *oc_status_strs[] = {
 };
 
 static void
-set_mpro_status_codes(void)
+ri_set_status_codes(void)
 {
   /* OK_200 */
   oc_coap_status_codes[OC_STATUS_OK] = CONTENT_2_05;
@@ -297,11 +300,26 @@ oc_delayed_delete_resource(oc_resource_t *resource)
 
 #endif /* OC_SERVER */
 
+coap_status_t
+oc_status_code_unsafe(oc_status_t key)
+{
+  return oc_coap_status_codes[key];
+}
+
 int
 oc_status_code(oc_status_t key)
 {
-  // safe: no status code is larger than INT_MAX
-  return (int)oc_coap_status_codes[key];
+  assert(key >= 0);
+  if (key >= __NUM_OC_STATUS_CODES__) {
+    if (OC_IGNORE == key) {
+      return CLEAR_TRANSACTION;
+    }
+    OC_WRN("oc_status_code: invalid status code %d", (int)key);
+    return -1;
+  }
+
+  // int cast is safe: no status code is larger than INT_MAX
+  return oc_status_code_unsafe(key);
 }
 
 int
@@ -312,6 +330,7 @@ oc_coap_status_to_status(coap_status_t status)
       return i;
     }
   }
+  OC_WRN("oc_coap_status_to_status: invalid coap status code %d", (int)status);
   return -1;
 }
 
@@ -444,7 +463,7 @@ oc_ri_get_app_resource_by_uri(const char *uri, size_t uri_len, size_t device)
 void
 oc_ri_init(void)
 {
-  set_mpro_status_codes();
+  ri_set_status_codes();
 
 #ifdef OC_SERVER
   oc_list_init(g_app_resources);
@@ -840,8 +859,8 @@ static ocf_version_t
 ri_get_ocf_version_from_header(const coap_packet_t *request)
 {
 #ifdef OC_SPEC_VER_OIC
-  uint16_t accept = 0;
-  if (coap_options_get_accept(request, &accept) == 1) {
+  oc_content_format_t accept = APPLICATION_NOT_DEFINED;
+  if (coap_options_get_accept(request, &accept)) {
     if (accept == APPLICATION_CBOR) {
       return OIC_VER_1_1_0;
     }
@@ -1144,10 +1163,10 @@ ri_invoke_coap_entity_set_response(coap_packet_t *response,
 
   const oc_response_buffer_t *response_buffer =
     ctx.response_obj->response_buffer;
-  if (response_buffer->code == OC_IGNORE) {
+  if (response_buffer->code == CLEAR_TRANSACTION) {
     /* If the server-side logic chooses to reject a request, it sends
-     * below a response code of IGNORE, which results in the messaging
-     * layer freeing the CoAP transaction associated with the request.
+     * below a response code of CLEAR_TRANSACTION, which results in the
+     * messaging layer freeing the CoAP transaction associated with the request.
      */
     coap_set_global_status_code(CLEAR_TRANSACTION);
     return;
@@ -1157,8 +1176,9 @@ ri_invoke_coap_entity_set_response(coap_packet_t *response,
   if (ctx.resource != NULL) {
 #ifdef OC_HAS_FEATURE_ETAG
     if (ctx.method == OC_GET &&
-        (response_buffer->code == oc_status_code(OC_STATUS_OK) ||
-         response_buffer->code == oc_status_code(OC_STATUS_NOT_MODIFIED))) {
+        (response_buffer->code == oc_status_code_unsafe(OC_STATUS_OK) ||
+         response_buffer->code ==
+           oc_status_code_unsafe(OC_STATUS_NOT_MODIFIED))) {
       ri_invoke_coap_entity_set_response_etag(response, &ctx);
     }
 #endif /* OC_HAS_FEATURE_ETAG */
@@ -1172,7 +1192,7 @@ ri_invoke_coap_entity_set_response(coap_packet_t *response,
       !ctx.resource_is_collection &&
 #endif /* OC_COLLECTIONS */
       (ctx.method == OC_PUT || ctx.method == OC_POST) &&
-      response_buffer->code < oc_status_code(OC_STATUS_BAD_REQUEST)) {
+      response_buffer->code < oc_status_code_unsafe(OC_STATUS_BAD_REQUEST)) {
       if ((ctx.iface_mask == OC_IF_STARTUP) ||
           (ctx.iface_mask == OC_IF_STARTUP_REVERT)) {
         oc_resource_defaults_data_t *resource_defaults_data =
@@ -1208,7 +1228,7 @@ ri_invoke_coap_entity_set_response(coap_packet_t *response,
   }
 
   if (response_buffer->code ==
-      oc_status_code(OC_STATUS_REQUEST_ENTITY_TOO_LARGE)) {
+      oc_status_code_unsafe(OC_STATUS_REQUEST_ENTITY_TOO_LARGE)) {
     coap_options_set_size1(response, (uint32_t)OC_BLOCK_SIZE);
   }
 
@@ -1236,6 +1256,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
    */
   oc_response_buffer_t response_buffer;
   memset(&response_buffer, 0, sizeof(response_buffer));
+  response_buffer.content_format = APPLICATION_NOT_DEFINED;
 
   oc_response_t response_obj;
   memset(&response_obj, 0, sizeof(response_obj));
@@ -1260,7 +1281,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
   coap_options_get_content_format(ctx->request, &cf);
 
   /* Read the accept CoAP option in the request */
-  uint16_t accept = 0;
+  oc_content_format_t accept = APPLICATION_NOT_DEFINED;
   coap_options_get_accept(ctx->request, &accept);
 
   /* Initialize OCF interface selector. */
@@ -1272,7 +1293,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
         !oc_ri_filter_request_by_device_id(endpoint->device, uri_query,
                                            uri_query_len)) {
       coap_set_global_status_code(CLEAR_TRANSACTION);
-      coap_set_status_code(ctx->response, OC_IGNORE);
+      coap_set_status_code(ctx->response, CLEAR_TRANSACTION);
       return false;
     }
 
@@ -1312,8 +1333,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
 
   bool bad_request = false;
   bool entity_too_large = false;
-  if (payload_len > 0 &&
-      (cf == APPLICATION_CBOR || cf == APPLICATION_VND_OCF_CBOR)) {
+  if (payload_len > 0 && oc_rep_decoder_set_by_content_format(cf)) {
     /* Attempt to parse request payload using tinyCBOR via oc_rep helper
      * functions. The result of this parse is a tree of oc_rep_t structures
      * which will reflect the schema of the payload.
@@ -1519,6 +1539,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
 #else  /* OC_DYNAMIC_ALLOCATION */
     oc_rep_new_v1(response_buffer.buffer, response_buffer.buffer_size);
 #endif /* !OC_DYNAMIC_ALLOCATION */
+    oc_rep_encoder_set_type_by_accept(accept);
 
     oc_status_t ret = ri_invoke_request_handler(
       cur_resource, method, &request_obj, iface_mask, resource_is_collection);
@@ -1559,28 +1580,29 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
   if (forbidden) {
     OC_WRN("ocri: Forbidden request");
     response_buffer.response_length = 0;
-    response_buffer.code = oc_status_code(OC_STATUS_FORBIDDEN);
+    response_buffer.code = oc_status_code_unsafe(OC_STATUS_FORBIDDEN);
   } else if (entity_too_large) {
     OC_WRN("ocri: Request payload too large (hence incomplete)");
     response_buffer.response_length = 0;
-    response_buffer.code = oc_status_code(OC_STATUS_REQUEST_ENTITY_TOO_LARGE);
+    response_buffer.code =
+      oc_status_code_unsafe(OC_STATUS_REQUEST_ENTITY_TOO_LARGE);
   } else if (bad_request) {
     OC_WRN("ocri: Bad request");
     /* Return a 4.00 response */
     response_buffer.response_length = 0;
-    response_buffer.code = oc_status_code(OC_STATUS_BAD_REQUEST);
+    response_buffer.code = oc_status_code_unsafe(OC_STATUS_BAD_REQUEST);
   } else if (!cur_resource) {
     OC_WRN("ocri: Could not find resource");
     /* Return a 4.04 response if the requested resource was not found */
     response_buffer.response_length = 0;
-    response_buffer.code = oc_status_code(OC_STATUS_NOT_FOUND);
+    response_buffer.code = oc_status_code_unsafe(OC_STATUS_NOT_FOUND);
   } else if (method_not_allowed) {
     OC_WRN("ocri: Could not find method");
     /* Return a 4.05 response if the resource does not implement the
      * request method.
      */
     response_buffer.response_length = 0;
-    response_buffer.code = oc_status_code(OC_STATUS_METHOD_NOT_ALLOWED);
+    response_buffer.code = oc_status_code_unsafe(OC_STATUS_METHOD_NOT_ALLOWED);
   }
 #ifdef OC_SECURITY
   else if (not_authorized) {
@@ -1590,13 +1612,13 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
      * access the resource. A 4.01 response is sent.
      */
     response_buffer.response_length = 0;
-    response_buffer.code = oc_status_code(OC_STATUS_UNAUTHORIZED);
+    response_buffer.code = oc_status_code_unsafe(OC_STATUS_UNAUTHORIZED);
   }
 #endif /* OC_SECURITY */
   else {
     if (not_modified) {
       response_buffer.response_length = 0;
-      response_buffer.code = oc_status_code(OC_STATUS_NOT_MODIFIED);
+      response_buffer.code = oc_status_code_unsafe(OC_STATUS_NOT_MODIFIED);
     }
     success = true;
   }
@@ -1609,16 +1631,17 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
   uint16_t block2_size = 0;
 #endif /* OC_BLOCK_WISE */
   if (success && method == OC_GET &&
-      response_buffer.code < oc_status_code(OC_STATUS_BAD_REQUEST)) {
+      response_buffer.code < oc_status_code_unsafe(OC_STATUS_BAD_REQUEST)) {
     observe = ri_handle_observation(ctx->request, ctx->response, cur_resource,
                                     resource_is_collection, block2_size,
                                     endpoint, iface_query);
   }
 #endif /* OC_SERVER */
 
-  if (request_obj.origin && (request_obj.origin->flags & MULTICAST) &&
-      response_buffer.code >= oc_status_code(OC_STATUS_BAD_REQUEST)) {
-    response_buffer.code = OC_IGNORE;
+  if (request_obj.origin != NULL &&
+      (request_obj.origin->flags & MULTICAST) != 0 &&
+      response_buffer.code >= oc_status_code_unsafe(OC_STATUS_BAD_REQUEST)) {
+    response_buffer.code = CLEAR_TRANSACTION;
   }
 
   ri_invoke_coap_entity_set_response_ctx_t resp_ctx = {

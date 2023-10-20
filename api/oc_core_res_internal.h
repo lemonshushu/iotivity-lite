@@ -34,6 +34,9 @@
 extern "C" {
 #endif
 
+#define OCF_D_URI "/oic/d"
+#define OCF_D_RT "oic.wk.d"
+
 /**
  * @brief initialize the core functionality
  */
@@ -130,10 +133,6 @@ bool oc_filter_resource_by_rt(const oc_resource_t *resource,
  * @return -1 on failure
  */
 int oc_core_get_resource_type_by_uri(const char *uri, size_t uri_len)
-  OC_NONNULL();
-
-/** @brief Set the device name */
-void oc_core_device_set_name(size_t device, const char *name, size_t name_len)
   OC_NONNULL();
 
 /** @brief Set the device name */

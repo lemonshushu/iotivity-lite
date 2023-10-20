@@ -62,6 +62,7 @@ set(OC_APP_DATA_BUFFER_SIZE "" CACHE STRING "Custom static buffer size for appli
 set(OC_APP_DATA_BUFFER_POOL "" CACHE STRING "Custom static size of application messages.")
 set(OC_VERSION_1_1_0_ENABLED OFF CACHE BOOL "Enable OCF version 1.1")
 set(OC_ETAG_ENABLED OFF CACHE BOOL "Enable Entity Tag (ETag) support.")
+set(OC_JSON_ENCODER_ENABLED OFF CACHE BOOL "Enable JSON encoder/decoder support.")
 set(PLGD_DEV_TIME_ENABLED OFF CACHE BOOL "Enable plgd time feature.")
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -99,8 +100,16 @@ if(UNIX)
 
     if(OC_UBSAN_ENABLED)
         message(STATUS "Undefined behaviour sanitizer enabled")
-        add_compile_options(${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined -fno-omit-frame-pointer)
+        if(OC_COMPILER_IS_CLANG)
+            # -fno-sanitize-recover=undefined,local-bounds,nullability
+            add_compile_options(${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined,local-bounds,nullability -fno-omit-frame-pointer)
+        else()
+            # -fno-sanitize-recover=undefined
+            add_compile_options(${CMAKE_C_FLAGS_DEBUG} -fsanitize=undefined -fno-omit-frame-pointer)
+        endif()
         add_link_options(-fsanitize=undefined)
+        # halt_on_error=1
+        set(OC_UBSAN_OPTIONS "print_stacktrace=1")
     endif()
 
     if(OC_COMPILER_IS_CLANG)
@@ -196,10 +205,10 @@ if(MSVC)
     # list(APPEND PRIVATE_COMPILE_OPTIONS /WX)
 elseif(OC_COMPILER_IS_GCC OR OC_COMPILER_IS_CLANG)
     oc_add_compile_options(GLOBAL
-        FLAGS -Wall -Wextra -pedantic 
-            -Wwrite-strings -Wunused -Wunreachable-code -Wcast-align -Wpointer-arith
-            -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes
+        FLAGS -Wall -Wextra -pedantic
+            -Wwrite-strings -Wunused -Wunreachable-code -Wcast-align -Wpointer-arith -Wmissing-declarations
             -fno-common
+        CFLAGS -Wmissing-prototypes -Wstrict-prototypes
     )
 
     if(NOT OC_CLANG_TIDY_ENABLED)
@@ -411,6 +420,10 @@ if(OC_ETAG_ENABLED)
     list(APPEND PUBLIC_COMPILE_DEFINITIONS "OC_ETAG")
 endif()
 
+if(OC_JSON_ENCODER_ENABLED)
+    list(APPEND PUBLIC_COMPILE_DEFINITIONS "OC_JSON_ENCODER")
+endif()
+
 if(PLGD_DEV_TIME_ENABLED)
     list(APPEND PUBLIC_COMPILE_DEFINITIONS "PLGD_DEV_TIME")
     if(BUILD_MBEDTLS)
@@ -435,6 +448,9 @@ if(MINGW)
     # force the use mingw_printf because the default doesn't support '%zu'
     list(APPEND PRIVATE_COMPILE_DEFINITIONS "__USE_MINGW_ANSI_STDIO=(1)")
     list(APPEND TEST_COMPILE_DEFINITIONS "__USE_MINGW_ANSI_STDIO=(1)")
+    if(BUILD_MBEDTLS)
+        list(APPEND MBEDTLS_COMPILE_DEFINITIONS "__USE_MINGW_ANSI_STDIO=(1)")
+    endif()
 endif()
 
 if(MSVC)
@@ -472,6 +488,13 @@ if(OC_PKI_ENABLED)
     list(APPEND COMMON_SRC
         ${PROJECT_SOURCE_DIR}/api/c-timestamp/timestamp_tm.c
     )
+endif()
+
+if(OC_JSON_ENCODER_ENABLED)
+    file(GLOB JSMN_SRC
+        ${PROJECT_SOURCE_DIR}/util/jsmn/*.c
+    )
+    list(APPEND COMMON_SRC ${JSMN_SRC})
 endif()
 
 if(PLGD_DEV_TIME_ENABLED)
@@ -891,6 +914,11 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         list(APPEND TEST_LINK_LIBS Threads::Threads)
     endif()
 
+    try_compile(HAVE_FLOAT16 ${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/tools/test_float16.c)
+    if(HAVE_FLOAT16)
+        list(APPEND TEST_COMPILE_DEFINITIONS "HAVE_FLOAT16")
+    endif()
+
     # Disable clang-tidy for gtest
     oc_disable_clang_tidy()
 
@@ -960,7 +988,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
     file(GLOB COMMONTEST_SRC tests/gtest/*.cpp tests/gtest/tls/*.cpp)
 
     # Unit tests
-    file(GLOB APITEST_SRC api/unittest/*.cpp api/client/unittest/*.cpp)
+    file(GLOB APITEST_SRC api/unittest/*.cpp api/unittest/encoder/*.cpp api/client/unittest/*.cpp)
     set(apitest_files)
     if (OC_INTROSPECTION_ENABLED AND OC_IDD_API_ENABLED)
         set(apitest_files ${PROJECT_SOURCE_DIR}/api/unittest/introspectiontest_IDD.cbor)
@@ -971,6 +999,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         FILES ${apitest_files}
         ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                     "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                    "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
     )
 
     file(GLOB TIMESTAMPTEST_SRC api/c-timestamp/unittest/*.cpp)
@@ -979,6 +1008,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         SOURCES ${TIMESTAMPTEST_SRC}
         ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                     "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                    "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
     )
 
     file(GLOB PLATFORMTEST_SRC port/unittest/*.cpp)
@@ -988,6 +1018,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         SOURCES ${COMMONTEST_SRC} ${PLATFORMTEST_SRC}
         ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                     "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                    "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
     )
 
     file(GLOB MESSAGINGTEST_SRC messaging/coap/unittest/*.cpp)
@@ -996,6 +1027,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         SOURCES ${COMMONTEST_SRC} ${MESSAGINGTEST_SRC}
         ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                     "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                    "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
     )
 
     if(OC_SECURITY_ENABLED)
@@ -1005,6 +1037,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
             SOURCES ${COMMONTEST_SRC} ${SECURITYTEST_SRC}
             ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                         "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                        "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
         )
 
         file(COPY ${PROJECT_SOURCE_DIR}/apps/pki_certs
@@ -1018,6 +1051,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         SOURCES ${COMMONTEST_SRC} ${UTILTEST_SRC}
         ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                     "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                    "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
     )
 
     if(OC_CLOUD_ENABLED)
@@ -1028,6 +1062,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
             SOURCES ${COMMONTEST_SRC} ${CLOUDTEST_SRC}
             ENVIRONMENT "ASAN_OPTIONS=${OC_ASAN_OPTIONS}"
                         "TSAN_OPTIONS=${OC_TSAN_OPTIONS}"
+                        "UBSAN_OPTIONS=${OC_UBSAN_OPTIONS}"
         )
     endif()
 
