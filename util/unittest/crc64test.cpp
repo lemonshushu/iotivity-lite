@@ -16,30 +16,36 @@
  *
  ****************************************************************************/
 
-#ifndef OC_REP_ENCODE_JSON_INTERNAL_H
-#define OC_REP_ENCODE_JSON_INTERNAL_H
-
 #include "util/oc_features.h"
 
-#ifdef OC_JSON_ENCODER
+#ifdef OC_HAS_FEATURE_CRC64
 
-#include "api/oc_rep_encode_internal.h"
+#include "util/oc_crc_internal.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <gtest/gtest.h>
 
-#define OC_REP_JSON_INT_MAX (1LL << 53)
-#define OC_REP_JSON_INT_MIN ~(1LL << 52)
-#define OC_REP_JSON_UINT_MAX (1ULL << 53)
+TEST(TestCRC, CRC64)
+{
+  struct test
+  {
+    std::string input;
+    uint64_t crc;
+  };
 
-/** Return JSON encoder implementation. */
-oc_rep_encoder_implementation_t oc_rep_json_encoder(void);
+  std::vector<test> inputs{
+    { "", 0x0 },
+    { "Hello, World!", 0xA885B0FA12A6B582 },
+    { "1234567890", 0x4CCE99FD976EC1A8 },
+    { "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+      0x9A076C1F9CFD879C },
+    { "IoTivity-Lite is the best IoT C library on the flat plane!",
+      0xB54B2DCA2CFA4D9E },
+  };
 
-#ifdef __cplusplus
+  for (auto &input : inputs) {
+    EXPECT_EQ(input.crc,
+              oc_crc64(0, (uint8_t *)&input.input[0], input.input.size()));
+  }
 }
-#endif
 
-#endif /* OC_JSON_ENCODER */
-
-#endif /* OC_REP_ENCODE_JSON_INTERNAL_H */
+#endif /* OC_HAS_FEATURE_CRC64 */

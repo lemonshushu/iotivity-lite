@@ -205,10 +205,10 @@ if(MSVC)
     # list(APPEND PRIVATE_COMPILE_OPTIONS /WX)
 elseif(OC_COMPILER_IS_GCC OR OC_COMPILER_IS_CLANG)
     oc_add_compile_options(GLOBAL
-        FLAGS -Wall -Wextra -pedantic 
-            -Wwrite-strings -Wunused -Wunreachable-code -Wcast-align -Wpointer-arith
-            -Wmissing-prototypes -Wmissing-declarations -Wstrict-prototypes
+        FLAGS -Wall -Wextra -pedantic
+            -Wwrite-strings -Wunused -Wunreachable-code -Wcast-align -Wpointer-arith -Wmissing-declarations
             -fno-common
+        CFLAGS -Wmissing-prototypes -Wstrict-prototypes
     )
 
     if(NOT OC_CLANG_TIDY_ENABLED)
@@ -448,6 +448,9 @@ if(MINGW)
     # force the use mingw_printf because the default doesn't support '%zu'
     list(APPEND PRIVATE_COMPILE_DEFINITIONS "__USE_MINGW_ANSI_STDIO=(1)")
     list(APPEND TEST_COMPILE_DEFINITIONS "__USE_MINGW_ANSI_STDIO=(1)")
+    if(BUILD_MBEDTLS)
+        list(APPEND MBEDTLS_COMPILE_DEFINITIONS "__USE_MINGW_ANSI_STDIO=(1)")
+    endif()
 endif()
 
 if(MSVC)
@@ -911,6 +914,11 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
         list(APPEND TEST_LINK_LIBS Threads::Threads)
     endif()
 
+    try_compile(HAVE_FLOAT16 ${CMAKE_BINARY_DIR} ${PROJECT_SOURCE_DIR}/tools/test_float16.c)
+    if(HAVE_FLOAT16)
+        list(APPEND TEST_COMPILE_DEFINITIONS "HAVE_FLOAT16")
+    endif()
+
     # Disable clang-tidy for gtest
     oc_disable_clang_tidy()
 
@@ -980,7 +988,7 @@ if(BUILD_TESTING AND(UNIX OR MINGW))
     file(GLOB COMMONTEST_SRC tests/gtest/*.cpp tests/gtest/tls/*.cpp)
 
     # Unit tests
-    file(GLOB APITEST_SRC api/unittest/*.cpp api/client/unittest/*.cpp)
+    file(GLOB APITEST_SRC api/unittest/*.cpp api/unittest/encoder/*.cpp api/client/unittest/*.cpp)
     set(apitest_files)
     if (OC_INTROSPECTION_ENABLED AND OC_IDD_API_ENABLED)
         set(apitest_files ${PROJECT_SOURCE_DIR}/api/unittest/introspectiontest_IDD.cbor)
