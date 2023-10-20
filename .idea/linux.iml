@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module external.linked.project.id="linux" external.linked.project.path="$MODULE_DIR$/port/linux" external.root.project.path="$MODULE_DIR$/port/linux" external.system.id="Makefile" type="CPP_MODULE" version="4">
+  <component name="NewModuleRootManager">
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
