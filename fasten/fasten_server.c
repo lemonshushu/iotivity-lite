@@ -125,7 +125,7 @@ get_request_handler_16K(oc_request_t *request, oc_interface_mask_t interfaces,
 }
 
 static void
-register_resources_internal(oc_resource_t *res)
+_register_resources(oc_resource_t *res)
 {
   oc_resource_bind_resource_interface(res, OC_IF_R);
   oc_resource_set_default_interface(res, OC_IF_R);
@@ -138,52 +138,52 @@ register_resources(void)
 {
   oc_resource_t *res_128 = oc_new_resource("FASTEN_128", "/fasten_128", 1, 0);
   oc_resource_bind_resource_type(res_128, "fasten_128");
-  register_resources_internal(res_128);
+  _register_resources(res_128);
   oc_resource_set_request_handler(res_128, OC_GET, get_request_handler_128,
                                   NULL);
   oc_add_resource(res_128);
 
   oc_resource_t *res_256 = oc_new_resource("FASTEN_256", "/fasten_256", 1, 0);
   oc_resource_bind_resource_type(res_256, "fasten_256");
-  register_resources_internal(res_256);
+  _register_resources(res_256);
   oc_resource_set_request_handler(res_256, OC_GET, get_request_handler_256,
                                   NULL);
   oc_add_resource(res_256);
 
   oc_resource_t *res_512 = oc_new_resource("FASTEN_512", "/fasten_512", 1, 0);
   oc_resource_bind_resource_type(res_512, "fasten_512");
-  register_resources_internal(res_512);
+  _register_resources(res_512);
   oc_resource_set_request_handler(res_512, OC_GET, get_request_handler_512,
                                   NULL);
   oc_add_resource(res_512);
 
   oc_resource_t *res_1K = oc_new_resource("FASTEN_1K", "/fasten_1k", 1, 0);
   oc_resource_bind_resource_type(res_1K, "fasten_1k");
-  register_resources_internal(res_1K);
+  _register_resources(res_1K);
   oc_resource_set_request_handler(res_1K, OC_GET, get_request_handler_1K, NULL);
   oc_add_resource(res_1K);
 
   oc_resource_t *res_2K = oc_new_resource("FASTEN_2K", "/fasten_2k", 1, 0);
   oc_resource_bind_resource_type(res_2K, "fasten_2k");
-  register_resources_internal(res_2K);
+  _register_resources(res_2K);
   oc_resource_set_request_handler(res_2K, OC_GET, get_request_handler_2K, NULL);
   oc_add_resource(res_2K);
 
   oc_resource_t *res_4K = oc_new_resource("FASTEN_4K", "/fasten_4k", 1, 0);
   oc_resource_bind_resource_type(res_4K, "fasten_4k");
-  register_resources_internal(res_4K);
+  _register_resources(res_4K);
   oc_resource_set_request_handler(res_4K, OC_GET, get_request_handler_4K, NULL);
   oc_add_resource(res_4K);
 
   oc_resource_t *res_8K = oc_new_resource("FASTEN_8K", "/fasten_8k", 1, 0);
   oc_resource_bind_resource_type(res_8K, "fasten_8k");
-  register_resources_internal(res_8K);
+  _register_resources(res_8K);
   oc_resource_set_request_handler(res_8K, OC_GET, get_request_handler_8K, NULL);
   oc_add_resource(res_8K);
 
   oc_resource_t *res_16K = oc_new_resource("FASTEN_16K", "/fasten_16k", 1, 0);
   oc_resource_bind_resource_type(res_16K, "fasten_16k");
-  register_resources_internal(res_16K);
+  _register_resources(res_16K);
   oc_resource_set_request_handler(res_16K, OC_GET, get_request_handler_16K, NULL);
   oc_add_resource(res_16K);
 }
