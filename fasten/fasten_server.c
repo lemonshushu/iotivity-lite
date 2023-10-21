@@ -16,6 +16,8 @@ const uint8_t *data_512;
 const uint8_t *data_1K;
 const uint8_t *data_2K;
 const uint8_t *data_4K;
+const uint8_t *data_8K;
+const uint8_t *data_16K;
 
 static int
 app_init(void)
@@ -99,6 +101,30 @@ get_request_handler_4K(oc_request_t *request, oc_interface_mask_t interfaces,
 }
 
 static void
+get_request_handler_8K(oc_request_t *request, oc_interface_mask_t interfaces,
+                       void *user_data)
+{
+  (void)interfaces;
+  (void)user_data;
+  oc_rep_start_root_object();
+  oc_rep_set_byte_string(root, data, data_8K, 8192);
+  oc_rep_end_root_object();
+  oc_send_response(request, OC_STATUS_OK);
+}
+
+static void
+get_request_handler_16K(oc_request_t *request, oc_interface_mask_t interfaces,
+                        void *user_data)
+{
+  (void)interfaces;
+  (void)user_data;
+  oc_rep_start_root_object();
+  oc_rep_set_byte_string(root, data, data_16K, 16384);
+  oc_rep_end_root_object();
+  oc_send_response(request, OC_STATUS_OK);
+}
+
+static void
 register_resources_internal(oc_resource_t *res)
 {
   oc_resource_bind_resource_interface(res, OC_IF_R);
@@ -148,14 +174,26 @@ register_resources(void)
   register_resources_internal(res_4K);
   oc_resource_set_request_handler(res_4K, OC_GET, get_request_handler_4K, NULL);
   oc_add_resource(res_4K);
+
+  oc_resource_t *res_8K = oc_new_resource("FASTEN_8K", "/fasten_8k", 1, 0);
+  oc_resource_bind_resource_type(res_8K, "fasten_8k");
+  register_resources_internal(res_8K);
+  oc_resource_set_request_handler(res_8K, OC_GET, get_request_handler_8K, NULL);
+  oc_add_resource(res_8K);
+
+  oc_resource_t *res_16K = oc_new_resource("FASTEN_16K", "/fasten_16k", 1, 0);
+  oc_resource_bind_resource_type(res_16K, "fasten_16k");
+  register_resources_internal(res_16K);
+  oc_resource_set_request_handler(res_16K, OC_GET, get_request_handler_16K, NULL);
+  oc_add_resource(res_16K);
 }
 
- static void
- random_pin_cb(const unsigned char *pin, size_t pin_len, void *data)
- {
-   (void)data;
-   OC_PRINTF("\n\nRandom PIN: %.*s\n\n", (int)pin_len, pin);
- }
+static void
+random_pin_cb(const unsigned char *pin, size_t pin_len, void *data)
+{
+  (void)data;
+  OC_PRINTF("\n\nRandom PIN: %.*s\n\n", (int)pin_len, pin);
+}
 
 static void
 signal_event_loop(void)
@@ -214,6 +252,8 @@ init(void)
   data_1K = (uint8_t *)malloc(1024);
   data_2K = (uint8_t *)malloc(2048);
   data_4K = (uint8_t *)malloc(4096);
+  data_8K = (uint8_t *)malloc(8192);
+  data_16K = (uint8_t *)malloc(16384);
 
   return true;
 }
@@ -230,6 +270,8 @@ deinit(void)
   free((void *)data_1K);
   free((void *)data_2K);
   free((void *)data_4K);
+  free((void *)data_8K);
+  free((void *)data_16K);
 }
 
 static void

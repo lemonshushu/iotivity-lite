@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rt_list=("fasten_128" "fasten_256" "fasten_512" "fasten_1k" "fasten_2k" "fasten_4k")
+rt_list=("fasten_128" "fasten_256" "fasten_512" "fasten_1k" "fasten_2k" "fasten_4k" "fasten_8k" "fasten_16k")
 
 # Run the server in the background
 ./fasten_server &
