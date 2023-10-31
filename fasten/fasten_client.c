@@ -5,6 +5,7 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
+#include <sys/time.h>
 
 static pthread_mutex_t mutex;
 static pthread_cond_t cv;
@@ -57,11 +58,9 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
       while (ep != NULL) {
         if (!server && (ep->flags & TCP)) {
           oc_endpoint_list_copy(&server, ep);
-          OC_PRINTipaddr(*ep);
         }
         ep = ep->next;
       }
-
 
       if (!server) {
         OC_PRINTF("ERROR: No TCP endpoint found\n");
@@ -70,7 +69,8 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
       }
 
       gettimeofday(&tv_GET, NULL);
-      OC_PRINTF("[DEBUG] GET request sent at %ld.%06ld\n", tv_GET.tv_sec, tv_GET.tv_usec]");
+      OC_PRINTF("[DEBUG] Issued GET request at %ld.%06ld\n", tv_GET.tv_sec,
+                tv_GET.tv_usec);
       if (!oc_do_get(a_fasten, server, NULL, &get_response_handler, LOW_QOS,
                      NULL)) {
         OC_PRINTF("ERROR: Could not issue GET request\n");
