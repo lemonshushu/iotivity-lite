@@ -74,6 +74,8 @@
 #include <string.h>
 #include <inttypes.h>
 
+struct timeval tv_packet;
+
 /* option format serialization */
 #define COAP_SERIALIZE_INT_OPTION(packet, number, field, text)                 \
   do {                                                                         \
@@ -1500,6 +1502,12 @@ coap_status_t
 coap_tcp_parse_message(coap_packet_t *packet, uint8_t *data, size_t data_len,
                        bool validate)
 {
+  struct timeval temp = tv_packet; // Store the previous value of tv_packet in temp
+  gettimeofday(&tv_packet, NULL); // Update the value of tv_packet
+  time_diff = (tv_packet.tv_sec - temp.tv_sec) * 1000000 +
+        (tv_packet.tv_usec - temp.tv_usec);
+  OC_PRINTF("[DEBUG] Packet time: %lu us\n", time_diff);
+
   if (data_len > UINT32_MAX) {
     COAP_WRN("message size(%zu) exceeds limit for TCP message(%lu)", data_len,
              (long unsigned)UINT32_MAX);

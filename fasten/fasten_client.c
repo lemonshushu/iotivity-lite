@@ -13,6 +13,8 @@ static bool quit = false;
 
 static char *rt = NULL;
 
+struct timeval tv_GET;
+
 static int
 app_init(void)
 {
@@ -67,6 +69,8 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
         return OC_STOP_DISCOVERY;
       }
 
+      gettimeofday(&tv_GET, NULL);
+      OC_PRINTF("[DEBUG] GET request sent at %ld.%06ld\n", tv_GET.tv_sec, tv_GET.tv_usec]");
       if (!oc_do_get(a_fasten, server, NULL, &get_response_handler, LOW_QOS,
                      NULL)) {
         OC_PRINTF("ERROR: Could not issue GET request\n");
