@@ -72,10 +72,6 @@
 #include <inttypes.h>
 #include <sys/time.h>
 
-struct timeval tv_start;
-struct timeval tv_end;
-__suseconds64_t time_diff;
-
 /// TODO update mbedtls_config.h to use LOG_LEVEL instead of OC_DEBUG
 #if defined(OC_DEBUG)
 #include <mbedtls/debug.h>
@@ -2628,13 +2624,15 @@ oc_tls_on_tcp_connect(const oc_endpoint_t *endpoint, int state, void *data)
   }
   if (state == OC_TCP_SOCKET_STATE_CONNECTED) {
 
-    gettimeofday(&tv_start, NULL);
-    oc_tls_handshake(peer);
-    gettimeofday(&tv_end, NULL);
+    struct timeval tv;
 
-    time_diff = (tv_end.tv_sec - tv_start.tv_sec) * 1000000L +
-                (tv_end.tv_usec - tv_start.tv_usec);
-    OC_PRINTF("[DEBUG] oc_tls_handshake: %lu us\n", time_diff);
+    gettimeofday(&tv, NULL);
+    OC_PRINTF("[DEBUG] TLS handshake started at %ld.%06ld\n", tv.tv_sec,
+              tv.tv_usec);
+    oc_tls_handshake(peer);
+    gettimeofday(&tv, NULL);
+    OC_PRINTF("[DEBUG] TLS handshake ended at %ld.%06ld\n", tv.tv_sec,
+              tv.tv_usec);
     return;
   }
   OC_ERR("oc_tls_on_tcp_connect: ends with error state: %d", state);
