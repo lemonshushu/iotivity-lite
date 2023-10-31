@@ -21,24 +21,26 @@
 
 #ifdef OC_CLIENT
 
-#include "oc_client_cb_internal.h"
-
+#include "api/client/oc_client_cb_internal.h"
 #include "api/oc_discovery_internal.h"
 #include "api/oc_event_callback_internal.h"
 #include "api/oc_helpers_internal.h"
+#include "api/oc_ping_internal.h"
+#include "api/oc_rep_internal.h"
 #include "api/oc_ri_internal.h"
-#include "messaging/coap/coap_options.h"
+#include "messaging/coap/options_internal.h"
 #include "oc_client_state.h"
 #include "util/oc_list.h"
 #include "util/oc_memb.h"
+#include "util/oc_macros_internal.h"
 
 #ifdef OC_TCP
-#include "messaging/coap/coap_signal.h"
+#include "messaging/coap/signal_internal.h"
 #endif /* OC_TCP */
 
 #ifdef OC_SECURITY
 #ifdef OC_OSCORE
-#include "messaging/coap/oscore.h"
+#include "messaging/coap/oscore_internal.h"
 #endif /* OC_OSCORE */
 #endif /* OC_SECURITY */
 
@@ -226,6 +228,16 @@ oc_client_cb_free(oc_client_cb_t *cb)
   oc_client_cb_dealloc(cb);
 }
 
+#ifdef OC_TCP
+static bool
+client_cb_is_ping_response(const oc_client_cb_t *cb)
+{
+  return ((oc_string_len(cb->uri) == OC_CHAR_ARRAY_LEN(OC_PING_URI)) &&
+          (memcmp(oc_string(cb->uri), OC_PING_URI,
+                  OC_CHAR_ARRAY_LEN(OC_PING_URI)) == 0));
+}
+#endif /* OC_TCP */
+
 static void
 client_cb_notify_with_code(oc_client_cb_t *cb, oc_status_t code)
 {
@@ -246,8 +258,7 @@ client_cb_notify_with_code(oc_client_cb_t *cb, oc_status_t code)
   handler(&client_response);
 
 #ifdef OC_TCP
-  if ((oc_string_len(cb->uri) == 5) &&
-      (memcmp((const char *)oc_string(cb->uri), "/ping", 5) == 0)) {
+  if (client_cb_is_ping_response(cb)) {
     oc_ri_remove_timed_event_callback(cb, oc_remove_ping_handler_async);
   }
 #endif /* OC_TCP */
@@ -465,7 +476,7 @@ oc_client_cb_invoke(const coap_packet_t *response, oc_client_cb_t *cb,
       }
     } else {
       OC_MEMB_LOCAL(rep_objects, oc_rep_t, OC_MAX_NUM_REP_OBJECTS);
-      oc_rep_set_pool(&rep_objects);
+      struct oc_memb *prev_rep_objects = oc_rep_reset_pool(&rep_objects);
       int err = 0;
       /* Do not parse an incoming payload when the Content-Format option
        * has not been set to the CBOR encoding.
@@ -483,6 +494,7 @@ oc_client_cb_invoke(const coap_packet_t *response, oc_client_cb_t *cb,
       if (client_response.payload) {
         oc_free_rep(client_response.payload);
       }
+      oc_rep_set_pool(prev_rep_objects);
     }
   } else {
     if (response->type == COAP_TYPE_ACK && response->code == 0) {
@@ -496,9 +508,7 @@ oc_client_cb_invoke(const coap_packet_t *response, oc_client_cb_t *cb,
   }
 
 #ifdef OC_TCP
-  if (response->code == PONG_7_03 ||
-      (oc_string_len(cb->uri) == 5 &&
-       memcmp(oc_string(cb->uri), "/ping", 5) == 0)) {
+  if (response->code == PONG_7_03 || client_cb_is_ping_response(cb)) {
     oc_ri_remove_timed_event_callback(cb, oc_remove_ping_handler_async);
   }
 #endif /* OC_TCP */

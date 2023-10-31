@@ -18,7 +18,7 @@
 
 #include "api/oc_query_internal.h"
 #include "api/oc_ri_internal.h"
-#include "messaging/coap/coap_options.h"
+#include "messaging/coap/options_internal.h"
 #include "oc_api.h"
 #include "oc_ri.h"
 
@@ -633,6 +633,9 @@ TEST_F(TestQuery, EncodeInterface_P)
     OC_IF_W,
     OC_IF_STARTUP,
     OC_IF_STARTUP_REVERT,
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+    PLGD_IF_ETAG,
+#endif /* OC_HAS_FEATURE_ETAG_INTERFACE */
   };
 
   std::vector<std::string> iface_strs = {
@@ -647,6 +650,9 @@ TEST_F(TestQuery, EncodeInterface_P)
     OC_IF_W_STR,
     OC_IF_STARTUP_STR,
     OC_IF_STARTUP_REVERT_STR,
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+    PLGD_IF_ETAG_STR,
+#endif /* OC_HAS_FEATURE_ETAG_INTERFACE */
   };
 
   for (size_t i = 0; i < ifaces.size(); ++i) {

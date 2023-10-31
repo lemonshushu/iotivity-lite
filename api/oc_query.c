@@ -19,7 +19,7 @@
 #include "api/oc_query_internal.h"
 #include "api/oc_helpers_internal.h"
 #include "api/oc_ri_internal.h"
-#include "messaging/coap/coap_options.h"
+#include "messaging/coap/options_internal.h"
 #include "oc_api.h"
 #include "oc_ri.h"
 #include "util/oc_secure_string_internal.h"
@@ -59,6 +59,10 @@ oc_query_encode_interface(oc_interface_mask_t iface_mask)
     return OC_STRING_VIEW("if=" OC_IF_STARTUP_STR);
   case OC_IF_STARTUP_REVERT:
     return OC_STRING_VIEW("if=" OC_IF_STARTUP_REVERT_STR);
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+  case PLGD_IF_ETAG:
+    return OC_STRING_VIEW("if=" PLGD_IF_ETAG_STR);
+#endif /* OC_HAS_FEATURE_ETAG_INTERFACE */
   default:
     break;
   }

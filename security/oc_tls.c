@@ -24,8 +24,8 @@
 #include "api/oc_message_internal.h"
 #include "api/oc_network_events_internal.h"
 #include "api/oc_session_events_internal.h"
-#include "messaging/coap/engine.h"
-#include "messaging/coap/observe.h"
+#include "messaging/coap/engine_internal.h"
+#include "messaging/coap/observe_internal.h"
 #include "oc_api.h"
 #include "oc_buffer.h"
 #include "oc_client_state.h"
@@ -36,7 +36,7 @@
 #include "port/oc_connectivity.h"
 #include "port/oc_connectivity_internal.h"
 #include "security/oc_acl_internal.h"
-#include "security/oc_audit.h"
+#include "security/oc_audit_internal.h"
 #include "security/oc_cred_internal.h"
 #include "security/oc_doxm_internal.h"
 #include "security/oc_entropy_internal.h"
@@ -53,7 +53,7 @@
 #endif /* OC_PKI */
 
 #ifdef OC_OSCORE
-#include "security/oc_oscore.h"
+#include "security/oc_oscore_internal.h"
 #endif /* OC_OSCORE */
 
 #include <mbedtls/build_info.h>

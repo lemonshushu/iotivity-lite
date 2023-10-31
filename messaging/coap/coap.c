@@ -47,25 +47,25 @@
  * This file is part of the Contiki operating system.
  */
 
-#include "coap.h"
 #include "coap_internal.h"
-#include "coap_log.h"
-#include "coap_options.h"
+#include "coap_internal.h"
+#include "log_internal.h"
+#include "options_internal.h"
 #include "oc_ri.h"
-#include "transactions.h"
+#include "transactions_internal.h"
 #include "port/oc_connectivity.h"
 #include "util/oc_macros_internal.h"
 
 #ifdef OC_OSCORE
-#include "oscore.h"
+#include "oscore_internal.h"
 #endif /* OC_OSCORE */
 
 #ifdef OC_TCP
-#include "coap_signal.h"
+#include "signal_internal.h"
 #endif /* OC_TCP */
 
 #ifdef OC_SECURITY
-#include "security/oc_audit.h"
+#include "security/oc_audit_internal.h"
 #include "security/oc_tls_internal.h"
 #endif /* OC_SECURITY */
 
@@ -507,7 +507,7 @@ coap_serialize_options(coap_packet_t *packet, uint8_t *option_array, bool inner,
 #endif /* OC_DBG_IS_ENABLED */
 
 #ifdef OC_TCP
-  if (coap_check_signal_message(packet)) {
+  if (coap_check_signal_message(packet->code)) {
     return coap_serialize_signal_options(packet, option_array);
   }
 #endif /* OC_TCP */
@@ -904,7 +904,7 @@ coap_oscore_parse_option(coap_packet_t *packet, uint8_t *current_option,
   (void)oscore;
 
 #ifdef OC_TCP
-  if (coap_check_signal_message(packet)) {
+  if (coap_check_signal_message(packet->code)) {
     return coap_parse_signal_options(packet, option_number, current_option,
                                      option_length, inner);
   }

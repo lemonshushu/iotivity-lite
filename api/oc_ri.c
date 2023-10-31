@@ -22,13 +22,14 @@
 #include "api/oc_network_events_internal.h"
 #include "api/oc_rep_encode_internal.h"
 #include "api/oc_rep_decode_internal.h"
+#include "api/oc_rep_internal.h"
 #include "api/oc_ri_internal.h"
 #include "messaging/coap/coap_internal.h"
-#include "messaging/coap/coap_options.h"
+#include "messaging/coap/options_internal.h"
 #include "messaging/coap/constants.h"
-#include "messaging/coap/engine.h"
+#include "messaging/coap/engine_internal.h"
 #include "messaging/coap/oc_coap.h"
-#include "messaging/coap/transactions.h"
+#include "messaging/coap/transactions_internal.h"
 #include "oc_api.h"
 #include "oc_buffer.h"
 #include "oc_core_res.h"
@@ -55,8 +56,8 @@
 #ifdef OC_SERVER
 #include "api/oc_ri_server_internal.h"
 #include "api/oc_server_api_internal.h"
-#include "messaging/coap/observe.h"
-#include "messaging/coap/separate.h"
+#include "messaging/coap/observe_internal.h"
+#include "messaging/coap/separate_internal.h"
 #ifdef OC_COLLECTIONS
 #include "api/oc_collection_internal.h"
 #include "api/oc_link_internal.h"
@@ -78,17 +79,18 @@
 
 #ifdef OC_SECURITY
 #include "security/oc_acl_internal.h"
-#include "security/oc_audit.h"
+#include "security/oc_audit_internal.h"
 #include "security/oc_pstat_internal.h"
 #include "security/oc_roles_internal.h"
 #include "security/oc_tls_internal.h"
 #ifdef OC_OSCORE
-#include "security/oc_oscore.h"
+#include "security/oc_oscore_internal.h"
 #endif /* OC_OSCORE */
 #endif /* OC_SECURITY */
 
 #ifdef OC_TCP
 #include "api/oc_session_events_internal.h"
+#include "messaging/coap/signal_internal.h"
 #endif /* OC_TCP */
 
 #include <assert.h>
@@ -309,7 +311,6 @@ oc_status_code_unsafe(oc_status_t key)
 int
 oc_status_code(oc_status_t key)
 {
-  assert(key >= 0);
   if (key >= __NUM_OC_STATUS_CODES__) {
     if (OC_IGNORE == key) {
       return CLEAR_TRANSACTION;
@@ -330,6 +331,11 @@ oc_coap_status_to_status(coap_status_t status)
       return i;
     }
   }
+#ifdef OC_TCP
+  if ((uint8_t)status == PONG_7_03) {
+    return OC_STATUS_OK;
+  }
+#endif /* OC_TCP */
   OC_WRN("oc_coap_status_to_status: invalid coap status code %d", (int)status);
   return -1;
 }
@@ -496,7 +502,7 @@ static const char *method_strs[] = {
 const char *
 oc_method_to_str(oc_method_t method)
 {
-  if (method < 0 || method >= OC_ARRAY_SIZE(method_strs)) {
+  if (method <= 0 || method >= OC_ARRAY_SIZE(method_strs)) {
     return method_strs[0];
   }
   return method_strs[method];
@@ -685,87 +691,65 @@ oc_ri_free_resource_properties(oc_resource_t *resource)
 oc_interface_mask_t
 oc_ri_get_interface_mask(const char *iface, size_t iface_len)
 {
-  if (OC_CHAR_ARRAY_LEN(OC_IF_BASELINE_STR) == iface_len &&
-      strncmp(iface, OC_IF_BASELINE_STR, iface_len) == 0) {
-    return OC_IF_BASELINE;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_LL_STR) == iface_len &&
-      strncmp(iface, OC_IF_LL_STR, iface_len) == 0) {
-    return OC_IF_LL;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_B_STR) == iface_len &&
-      strncmp(iface, OC_IF_B_STR, iface_len) == 0) {
-    return OC_IF_B;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_R_STR) == iface_len &&
-      strncmp(iface, OC_IF_R_STR, iface_len) == 0) {
-    return OC_IF_R;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_RW_STR) == iface_len &&
-      strncmp(iface, OC_IF_RW_STR, iface_len) == 0) {
-    return OC_IF_RW;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_A_STR) == iface_len &&
-      strncmp(iface, OC_IF_A_STR, iface_len) == 0) {
-    return OC_IF_A;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_S_STR) == iface_len &&
-      strncmp(iface, OC_IF_S_STR, iface_len) == 0) {
-    return OC_IF_S;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_CREATE_STR) == iface_len &&
-      strncmp(iface, OC_IF_CREATE_STR, iface_len) == 0) {
-    return OC_IF_CREATE;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_W_STR) == iface_len &&
-      strncmp(iface, OC_IF_W_STR, iface_len) == 0) {
-    return OC_IF_W;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_STARTUP_STR) == iface_len &&
-      strncmp(iface, OC_IF_STARTUP_STR, iface_len) == 0) {
-    return OC_IF_STARTUP;
-  }
-  if (OC_CHAR_ARRAY_LEN(OC_IF_STARTUP_REVERT_STR) == iface_len &&
-      strncmp(iface, OC_IF_STARTUP_REVERT_STR, iface_len) == 0) {
-    return OC_IF_STARTUP_REVERT;
+  struct
+  {
+    oc_interface_mask_t mask;
+    oc_string_view_t str;
+  } iface_to_strs[] = {
+    { OC_IF_BASELINE, OC_STRING_VIEW(OC_IF_BASELINE_STR) },
+    { OC_IF_LL, OC_STRING_VIEW(OC_IF_LL_STR) },
+    { OC_IF_B, OC_STRING_VIEW(OC_IF_B_STR) },
+    { OC_IF_R, OC_STRING_VIEW(OC_IF_R_STR) },
+    { OC_IF_RW, OC_STRING_VIEW(OC_IF_RW_STR) },
+    { OC_IF_A, OC_STRING_VIEW(OC_IF_A_STR) },
+    { OC_IF_S, OC_STRING_VIEW(OC_IF_S_STR) },
+    { OC_IF_CREATE, OC_STRING_VIEW(OC_IF_CREATE_STR) },
+    { OC_IF_W, OC_STRING_VIEW(OC_IF_W_STR) },
+    { OC_IF_STARTUP, OC_STRING_VIEW(OC_IF_STARTUP_STR) },
+    { OC_IF_STARTUP_REVERT, OC_STRING_VIEW(OC_IF_STARTUP_REVERT_STR) },
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+    { PLGD_IF_ETAG, OC_STRING_VIEW(PLGD_IF_ETAG_STR) },
+#endif /* OC_HAS_FEATURE_ETAG_INTERFACE */
+  };
+
+  for (size_t i = 0; i < OC_ARRAY_SIZE(iface_to_strs); ++i) {
+    if (iface_len == iface_to_strs[i].str.length &&
+        strncmp(iface, iface_to_strs[i].str.data, iface_len) == 0) {
+      return iface_to_strs[i].mask;
+    }
   }
   return 0;
 }
 
-static bool
-does_interface_support_method(oc_interface_mask_t iface_mask,
-                              oc_method_t method)
+bool
+oc_ri_interface_supports_method(oc_interface_mask_t iface, oc_method_t method)
 {
-  bool supported = true;
-  switch (iface_mask) {
-  /* Per section 7.5.3 of the OCF Core spec, the following three interfaces
-   * are RETRIEVE-only.
-   */
+  /* Supported operations are defined in section 7.5.3 of the OCF Core spec */
+  switch (iface) {
+  /* The following interfaces are RETRIEVE-only: */
   case OC_IF_LL:
   case OC_IF_S:
   case OC_IF_R:
-    if (method != OC_GET)
-      supported = false;
-    break;
-  /* Per section 7.5.3 of the OCF Core spec, the following three interfaces
-   * support RETRIEVE, UPDATE.
-   * TODO: Refine logic below after adding logic that identifies
-   * and handles CREATE requests using PUT/POST.
-   */
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+  case PLGD_IF_ETAG:
+#endif
+    return method == OC_GET;
+  /* The following interafaces are UPDATE(WRITE)-only: */
+  case OC_IF_W:
+    return method == OC_PUT || method == OC_POST || method == OC_DELETE;
+  /* The CREATE interface supports GET/PUT/POST: */
+  case OC_IF_CREATE:
+    return method == OC_GET || method == OC_PUT || method == OC_POST;
+  /* The following interfaces support RETRIEVE and UPDATE: */
   case OC_IF_RW:
   case OC_IF_B:
   case OC_IF_BASELINE:
-  case OC_IF_CREATE:
-  /* Per section 7.5.3 of the OCF Core spec, the following interface
-   * supports CREATE, RETRIEVE and UPDATE.
-   */
   case OC_IF_A:
   case OC_IF_STARTUP:
   case OC_IF_STARTUP_REVERT:
-  case OC_IF_W:
-    break;
+    return true;
   }
-  return supported;
+  return false;
 }
 
 #ifdef OC_SECURITY
@@ -1120,6 +1104,7 @@ ri_invoke_coap_entity_set_response_etag(
   uint8_t etag_len = ctx->response_obj->response_buffer->etag.length;
 #ifdef OC_BLOCK_WISE
   if (ctx->response_obj->response_buffer->response_length > 0) {
+    assert(*ctx->response_state != NULL);
     oc_blockwise_response_state_t *bw_response_buffer =
       (oc_blockwise_response_state_t *)*ctx->response_state;
     memcpy(&bw_response_buffer->etag.value[0], &etag[0], etag_len);
@@ -1329,26 +1314,33 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
 #endif /* OC_HAS_FEATURE_ETAG */
 
   OC_MEMB_LOCAL(rep_objects, oc_rep_t, OC_MAX_NUM_REP_OBJECTS);
-  oc_rep_set_pool(&rep_objects);
+  struct oc_memb *prev_rep_objects = oc_rep_reset_pool(&rep_objects);
 
   bool bad_request = false;
   bool entity_too_large = false;
-  if (payload_len > 0 && oc_rep_decoder_set_by_content_format(cf)) {
-    /* Attempt to parse request payload using tinyCBOR via oc_rep helper
-     * functions. The result of this parse is a tree of oc_rep_t structures
-     * which will reflect the schema of the payload.
-     * Any failures while parsing the payload is viewed as an erroneous
-     * request and results in a 4.00 response being sent.
-     */
-    int parse_error =
-      oc_parse_rep(payload, payload_len, &request_obj.request_payload);
-    if (parse_error != 0) {
-      OC_WRN("ocri: error parsing request payload; tinyCBOR error code:  %d",
-             parse_error);
-      if (parse_error == CborErrorUnexpectedEOF) {
-        entity_too_large = true;
-      }
+  if (payload_len > 0) {
+    if (!oc_rep_decoder_set_by_content_format(cf)) {
+      OC_WRN("ocri: unsupported content format (%d)", (int)cf);
       bad_request = true;
+    }
+
+    if (!bad_request) {
+      /* Attempt to parse request payload using tinyCBOR via oc_rep helper
+       * functions. The result of this parse is a tree of oc_rep_t structures
+       * which will reflect the schema of the payload.
+       * Any failures while parsing the payload is viewed as an erroneous
+       * request and results in a 4.00 response being sent.
+       */
+      int parse_error =
+        oc_parse_rep(payload, payload_len, &request_obj.request_payload);
+      if (parse_error != 0) {
+        OC_WRN("ocri: error parsing request payload; tinyCBOR error code:  %d",
+               parse_error);
+        if (parse_error == CborErrorUnexpectedEOF) {
+          entity_too_large = true;
+        }
+        bad_request = true;
+      }
     }
   }
 
@@ -1405,7 +1397,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
      * If not, return a 4.00 response.
      */
     if (((iface_mask & ~cur_resource->interfaces) != 0) ||
-        !does_interface_support_method(iface_mask, method)) {
+        !oc_ri_interface_supports_method(iface_mask, method)) {
       forbidden = true;
       bad_request = true;
 #ifdef OC_SECURITY
@@ -1575,6 +1567,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
      */
     oc_free_rep(request_obj.request_payload);
   }
+  oc_rep_set_pool(prev_rep_objects);
 
   bool success = false;
   if (forbidden) {

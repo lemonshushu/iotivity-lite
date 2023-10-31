@@ -22,9 +22,9 @@
 #include "api/oc_etag_internal.h"
 #include "api/oc_resource_internal.h"
 #include "api/oc_ri_internal.h"
-#include "messaging/coap/coap_options.h"
+#include "messaging/coap/options_internal.h"
 #include "messaging/coap/oc_coap.h"
-#include "messaging/coap/observe.h"
+#include "messaging/coap/observe_internal.h"
 #include "oc_api.h"
 #include "oc_base64.h"
 #include "oc_core_res.h"
@@ -678,12 +678,12 @@ parseBaselinePayload(const oc_rep_t *payload)
   char *str;
   size_t str_len;
   // sduuid: string
-  if (oc_rep_get_string(rep, "sduuid", &str, &str_len)) {
+  if (oc_rep_get_string(rep, OCF_RES_PROP_SDUUID, &str, &str_len)) {
     data.sduuid = std::string(str, str_len);
   }
 
   // sdname: string
-  if (oc_rep_get_string(rep, "sdname", &str, &str_len)) {
+  if (oc_rep_get_string(rep, OCF_RES_PROP_SDNAME, &str, &str_len)) {
     data.sdname = std::string(str, str_len);
   }
 

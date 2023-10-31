@@ -19,7 +19,7 @@
 #include "api/oc_con_resource_internal.h"
 #include "api/oc_rep_decode_internal.h"
 #include "api/oc_rep_encode_internal.h"
-#include "oc_rep.h"
+#include "api/oc_rep_internal.h"
 #include "port/oc_log_internal.h"
 #include "tests/gtest/Device.h"
 #include "tests/gtest/RepPool.h"
@@ -505,7 +505,7 @@ TEST_F(TestRepWithPool, OCRepSetGetByteString)
   /* add text string value "hal9000":"Dave" to root object */
   oc_rep_start_root_object();
   ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
-  oc_rep_set_byte_string(root, empty_byte_string, nullptr, 0);
+  oc_rep_set_byte_string(root, empty_byte_string, (const uint8_t *)"", 0);
   ASSERT_EQ(CborNoError, oc_rep_get_cbor_errno());
   const uint8_t test_byte_string[] = { 0x01, 0x02, 0x03, 0x04, 0x02, 0x00 };
   oc_rep_set_byte_string(root, test_byte_string, test_byte_string,

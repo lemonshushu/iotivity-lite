@@ -164,7 +164,8 @@ oc_core_shutdown(void)
 }
 
 void
-oc_core_encode_interfaces_mask(CborEncoder *parent, unsigned iface_mask)
+oc_core_encode_interfaces_mask(CborEncoder *parent, unsigned iface_mask,
+                               bool include_private)
 {
   oc_rep_set_key((parent), "if");
   oc_rep_start_array((parent), if);
@@ -201,6 +202,13 @@ oc_core_encode_interfaces_mask(CborEncoder *parent, unsigned iface_mask)
   if ((iface_mask & OC_IF_STARTUP_REVERT) != 0) {
     oc_rep_add_text_string(if, OC_IF_STARTUP_REVERT_STR);
   }
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+  if (include_private && (iface_mask & PLGD_IF_ETAG) != 0) {
+    oc_rep_add_text_string(if, PLGD_IF_ETAG_STR);
+  }
+#else  /* OC_HAS_FEATURE_ETAG_INTERFACE */
+  (void)include_private;
+#endif /* OC_HAS_FEATURE_ETAG_INTERFACE */
   oc_rep_end_array((parent), if);
 }
 
@@ -452,7 +460,7 @@ oc_core_platform_handler(oc_request_t *request, oc_interface_mask_t iface_mask,
   switch (iface_mask) {
   case OC_IF_BASELINE:
     oc_process_baseline_interface(request->resource);
-  /* fall through */
+    OC_FALLTHROUGH;
   case OC_IF_R: {
     oc_rep_set_text_string(root, pi, pi);
     oc_rep_set_text_string(root, mnmn, oc_string(g_oc_platform_info.mfg_name));
@@ -745,8 +753,8 @@ oc_core_get_resource_type_by_uri(const char *uri, size_t uri_len)
   }
 #endif /* OC_HAS_FEATURE_PLGD_TIME */
 #ifdef OC_WKCORE
-  if (core_is_resource_uri(uri, uri_len, "/.well-known/core",
-                           OC_CHAR_ARRAY_LEN("/.well-known/core"))) {
+  if (core_is_resource_uri(uri, uri_len, OC_WELLKNOWNCORE_URI,
+                           OC_CHAR_ARRAY_LEN(OC_WELLKNOWNCORE_URI))) {
     return WELLKNOWNCORE;
   }
 #endif /* OC_WKCORE */

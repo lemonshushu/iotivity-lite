@@ -20,7 +20,7 @@
 #define OC_RI_INTERNAL_H
 
 #include "messaging/coap/oc_coap.h"
-#include "messaging/coap/engine.h"
+#include "messaging/coap/engine_internal.h"
 #include "oc_config.h"
 #include "oc_endpoint.h"
 #include "oc_ri.h"
@@ -45,6 +45,9 @@ extern "C" {
 #define OC_IF_W_STR "oic.if.w"
 #define OC_IF_STARTUP_STR "oic.if.startup"
 #define OC_IF_STARTUP_REVERT_STR "oic.if.startup.revert"
+#ifdef OC_HAS_FEATURE_ETAG_INTERFACE
+#define PLGD_IF_ETAG_STR "x.plgd.if.etag"
+#endif /* OC_HAS_FEATURE_ETAG_INTERFACE */
 
 // number of resources with a single instance on the whole platform
 #define OC_NUM_CORE_PLATFORM_RESOURCES (OCF_CON)
@@ -89,8 +92,12 @@ void oc_ri_init(void);
  */
 void oc_ri_shutdown(void);
 
-/** Unchecked conversion from a non-error oc_status_t to coap_status_t */
+/** @brief Unchecked conversion from a non-error oc_status_t to coap_status_t */
 coap_status_t oc_status_code_unsafe(oc_status_t key);
+
+/** @brief Check if given method is supported by the interface */
+bool oc_ri_interface_supports_method(oc_interface_mask_t iface,
+                                     oc_method_t method);
 
 #ifdef OC_HAS_FEATURE_ETAG
 
@@ -140,10 +147,6 @@ bool oc_ri_URI_is_in_use(size_t device, const char *uri, size_t uri_len)
 bool oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
                                       oc_endpoint_t *endpoint, void *user_data)
   OC_NONNULL(1, 2);
-
-#ifdef OC_TCP
-oc_event_callback_retval_t oc_remove_ping_handler_async(void *data);
-#endif /* OC_TCP */
 
 #ifdef __cplusplus
 }

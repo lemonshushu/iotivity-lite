@@ -17,27 +17,25 @@
  *
  ****************************************************************************/
 
+#ifndef OC_AUDIT_INTERNAL_H
+#define OC_AUDIT_INTERNAL_H
+
+#include "oc_config.h"
+
 #ifdef OC_SECURITY
 
-#include "oc_audit_internal.h"
-#include "oc_ael_internal.h"
-#include "port/oc_log_internal.h"
-#include <stdbool.h>
-#include <stdlib.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-void
-oc_audit_log(size_t device, const char *aeid, const char *message,
-             uint8_t category, uint8_t priority, const char **aux,
-             size_t aux_len)
-{
-  bool ret =
-    oc_sec_ael_add(device, category, priority, aeid, message, aux, aux_len);
-#if OC_DBG_IS_ENABLED
-  OC_DBG("audit_log: %s %s %u %u; status = %d", aeid, message, category,
-         priority, ret);
-#else  /* !OC_DBG_IS_ENABLED */
-  (void)ret;
-#endif /* OC_DBG_IS_ENABLED */
+void oc_audit_log(size_t device, const char *aeid, const char *message,
+                  uint8_t category, uint8_t priority, const char **aux,
+                  size_t aux_len);
+
+#ifdef __cplusplus
 }
+#endif
 
 #endif /* OC_SECURITY */
+
+#endif /* OC_AUDIT_INTERNAL_H */

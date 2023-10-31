@@ -1,7 +1,6 @@
 /****************************************************************************
  *
- * Copyright (c) 2016-2019 Intel Corporation
- * Copyright 2019 Samsung Electronics All Rights Reserved.
+ * Copyright (c) 2016 Intel Corporation
  *
  * Licensed under the Apache License, Version 2.0 (the "License"),
  * you may not use this file except in compliance with the License.
@@ -17,21 +16,26 @@
  *
  ****************************************************************************/
 
-#ifndef OC_AUDIT_H
-#define OC_AUDIT_H
+#ifndef OC_PING_INTERNAL_H
+#define OC_PING_INTERNAL_H
 
-#include "oc_config.h"
+#if defined(OC_CLIENT) && defined(OC_TCP)
+
+#include "oc_ri.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-void oc_audit_log(size_t device, const char *aeid, const char *message,
-                  uint8_t category, uint8_t priority, const char **aux,
-                  size_t aux_len);
+#define OC_PING_URI "/ping"
+
+/** Ping timeout callback */
+oc_event_callback_retval_t oc_remove_ping_handler_async(void *data);
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* OC_AUDIT_H */
+#endif /* OC_CLIENT && OC_TCP */
+
+#endif /* OC_PING_INTERNAL_H */

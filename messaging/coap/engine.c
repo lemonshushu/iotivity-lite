@@ -53,17 +53,17 @@
 #include "api/oc_message_internal.h"
 #include "api/oc_ri_internal.h"
 #include "messaging/coap/coap_internal.h"
-#include "messaging/coap/coap_log.h"
-#include "messaging/coap/coap_options.h"
-#include "messaging/coap/engine.h"
-#include "messaging/coap/observe.h"
-#include "messaging/coap/transactions.h"
+#include "messaging/coap/log_internal.h"
+#include "messaging/coap/options_internal.h"
+#include "messaging/coap/engine_internal.h"
+#include "messaging/coap/observe_internal.h"
+#include "messaging/coap/transactions_internal.h"
 #include "oc_api.h"
 #include "oc_buffer.h"
 #include "util/oc_macros_internal.h"
 
 #ifdef OC_SECURITY
-#include "security/oc_audit.h"
+#include "security/oc_audit_internal.h"
 #include "security/oc_pstat_internal.h"
 #include "security/oc_tls_internal.h"
 #endif /* OC_SECURITY */
@@ -78,7 +78,7 @@
 #endif /* OC_CLIENT */
 
 #ifdef OC_TCP
-#include "coap_signal.h"
+#include "signal_internal.h"
 #endif
 
 #include <assert.h>
@@ -1024,6 +1024,36 @@ coap_receive(coap_receive_ctx_t *ctx, oc_endpoint_t *endpoint,
   return coap_receive_request_with_code(ctx, endpoint);
 }
 
+static coap_status_t
+coap_parse_inbound_message(coap_packet_t *packet, oc_message_t *msg)
+{
+#ifdef OC_TCP
+  if ((msg->endpoint.flags & TCP) != 0) {
+    return coap_tcp_parse_message(packet, msg->data, msg->length, false);
+  }
+#endif /* OC_TCP */
+  return coap_udp_parse_message(packet, msg->data, msg->length, false);
+}
+
+static void
+coap_process_invalid_inbound_message(const coap_packet_t *packet,
+                                     const oc_message_t *msg,
+                                     coap_status_t status)
+{
+#ifdef OC_SECURITY
+  coap_audit_log(msg);
+#endif /* OC_SECURITY */
+#ifdef OC_TCP
+  if ((msg->endpoint.flags & TCP) != 0) {
+    oc_connectivity_end_session(&msg->endpoint);
+    return;
+  }
+#endif /* OC_TCP */
+  coap_send_empty_response(
+    packet->type == COAP_TYPE_CON ? COAP_TYPE_ACK : COAP_TYPE_NON, packet->mid,
+    packet->token, packet->token_len, (uint8_t)status, &msg->endpoint);
+}
+
 coap_status_t
 coap_process_inbound_message(oc_message_t *msg)
 {
@@ -1036,34 +1066,11 @@ coap_process_inbound_message(oc_message_t *msg)
   static coap_packet_t response;
   static coap_receive_ctx_t ctx;
 
-  coap_status_t status;
-#ifdef OC_TCP
-  if ((msg->endpoint.flags & TCP) != 0) {
-    status = coap_tcp_parse_message(&message, msg->data, msg->length, false);
-  } else
-#endif /* OC_TCP */
-  {
-    status = coap_udp_parse_message(&message, msg->data, msg->length, false);
-  }
-
+  coap_status_t status = coap_parse_inbound_message(&message, msg);
   coap_set_global_status_code(status);
 
   if (status != COAP_NO_ERROR) {
-    COAP_ERR("Unexpected CoAP message");
-#ifdef OC_SECURITY
-    coap_audit_log(msg);
-#endif /* OC_SECURITY */
-#ifdef OC_TCP
-    if ((msg->endpoint.flags & TCP) != 0) {
-      oc_connectivity_end_session(&msg->endpoint);
-      return status;
-    }
-#endif /* OC_TCP */
-    coap_send_empty_response(message.type == COAP_TYPE_CON ? COAP_TYPE_ACK
-                                                           : COAP_TYPE_NON,
-                             message.mid, message.token, message.token_len,
-                             (uint8_t)status, &msg->endpoint);
-
+    coap_process_invalid_inbound_message(&message, msg, status);
     return status;
   }
 
@@ -1082,9 +1089,10 @@ coap_process_inbound_message(oc_message_t *msg)
 #endif /* OC_DBG_IS_ENABLED */
 
 #ifdef OC_TCP
-  if (coap_check_signal_message(&message)) {
-    coap_set_global_status_code(
-      handle_coap_signal_message(&message, &msg->endpoint));
+  if (coap_check_signal_message(message.code) &&
+      coap_signal_handle_message(&message, &msg->endpoint) ==
+        COAP_SIGNAL_DONE) {
+    return COAP_NO_ERROR;
   }
 #endif /* OC_TCP */
 

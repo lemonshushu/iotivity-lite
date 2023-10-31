@@ -17,12 +17,12 @@
  ******************************************************************/
 
 #if defined(OC_SECURITY) && defined(OC_OSCORE)
-#include "oc_oscore_context.h"
-#include "messaging/coap/transactions.h"
+#include "oc_oscore_context_internal.h"
+#include "messaging/coap/transactions_internal.h"
 #include "oc_api.h"
 #include "oc_client_state.h"
 #include "oc_cred.h"
-#include "oc_oscore_crypto.h"
+#include "oc_oscore_crypto_internal.h"
 #include "oc_rep.h"
 #include "oc_store.h"
 #include "port/oc_log_internal.h"
@@ -265,7 +265,12 @@ oc_oscore_context_derive_param(const uint8_t *id, uint8_t id_len,
   /* Array of 5 elements */
   err |= cbor_encoder_create_array(&e, &a, 5);
   /* Sender ID, Recipient ID or empty string for Common IV */
-  err |= cbor_encode_byte_string(&a, id, id_len);
+  if (id_len > 0) {
+    err |= cbor_encode_byte_string(&a, id, id_len);
+  } else {
+    // we need a non-NULL pointer otherwise UBSAN detects an issue
+    err |= cbor_encode_byte_string(&a, (const uint8_t *)"", 0);
+  }
   /* id_context or null if not provided */
   if (id_ctx_len > 0) {
     err |= cbor_encode_byte_string(&a, id_ctx, id_ctx_len);

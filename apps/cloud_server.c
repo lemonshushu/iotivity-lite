@@ -30,6 +30,10 @@
 #include "util/oc_features.h"
 #include "util/oc_process.h"
 
+#ifdef OC_HAS_FEATURE_ETAG
+#include "oc_etag.h"
+#endif /* OC_HAS_FEATURE_ETAG */
+
 #ifdef OC_HAS_FEATURE_PLGD_TIME
 #include "plgd/plgd_time.h"
 #endif /* OC_HAS_FEATURE_PLGD_TIME */
@@ -1705,7 +1709,7 @@ main(int argc, char *argv[])
   oc_storage_config("./cloud_server_creds/");
 #endif /* OC_STORAGE */
   oc_set_factory_presets_cb(factory_presets_cb, NULL);
-  oc_set_max_app_data_size(8 * 1024 + num_resources * 200);
+  oc_set_max_app_data_size(8 * 1024 + num_resources * 512);
   oc_set_min_app_data_size(512);
 #if defined(OC_SECURITY) && defined(OC_PKI)
   oc_sec_certs_md_set_algorithms_allowed(
@@ -1723,7 +1727,7 @@ main(int argc, char *argv[])
   }
 
   for (size_t i = 0; i < g_num_devices; ++i) {
-    oc_cloud_context_t *ctx = oc_cloud_get_context(0);
+    oc_cloud_context_t *ctx = oc_cloud_get_context(i);
     if (ctx) {
       oc_cloud_manager_start(ctx, cloud_status_handler, NULL);
       if (cis) {
@@ -1738,14 +1742,23 @@ main(int argc, char *argv[])
   }
 #endif /* OC_HAS_FEATURE_PLGD_TIME */
 
+#ifdef OC_HAS_FEATURE_ETAG
+  oc_etag_load_and_clear();
+#endif /* OC_HAS_FEATURE_ETAG */
+
   run_loop();
 
   for (size_t i = 0; i < g_num_devices; ++i) {
-    oc_cloud_context_t *ctx = oc_cloud_get_context(0);
+    oc_cloud_context_t *ctx = oc_cloud_get_context(i);
     if (ctx) {
       oc_cloud_manager_stop(ctx);
     }
   }
+
+#ifdef OC_HAS_FEATURE_ETAG
+  oc_etag_dump();
+#endif /* OC_HAS_FEATURE_ETAG */
+
   oc_main_shutdown();
   deinit();
   return 0;
