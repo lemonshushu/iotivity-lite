@@ -107,7 +107,7 @@ static size_t _OC_MTU_SIZE = 2048 + COAP_MAX_HEADER_SIZE;
 static size_t _OC_MAX_APP_DATA_SIZE = 7168;
 static size_t _OC_MIN_APP_DATA_SIZE = 7168;
 #else /* OC_APP_DATA_BUFFER_SIZE */
-static size_t _OC_MAX_APP_DATA_SIZE = 7168;
+static size_t _OC_MAX_APP_DATA_SIZE = 16384;
 #ifdef OC_REP_ENCODING_REALLOC
 static size_t _OC_MIN_APP_DATA_SIZE = 256;
 #else                                /* OC_REP_ENCODING_REALLOC */
