@@ -10,6 +10,7 @@ static pthread_cond_t cv;
 
 static bool quit = false;
 
+const uint8_t *data_64;
 const uint8_t *data_128;
 const uint8_t *data_256;
 const uint8_t *data_512;
@@ -26,6 +27,18 @@ app_init(void)
   ret |= oc_add_device("/oic/d", "oic.d.fasten", "FASTEN Server", "ocf.1.0.0",
                        "ocf.res.1.0.0", NULL, NULL);
   return ret;
+}
+
+static void
+get_request_handler_64(oc_request_t *request, oc_interface_mask_t interfaces,
+                       void *user_data)
+{
+  (void)interfaces;
+  (void)user_data;
+  oc_rep_start_root_object();
+  oc_rep_set_byte_string(root, data, data_64, 64);
+  oc_rep_end_root_object();
+  oc_send_response(request, OC_STATUS_OK);
 }
 
 static void
@@ -136,6 +149,12 @@ _register_resources(oc_resource_t *res)
 static void
 register_resources(void)
 {
+  oc_resource_t *res_64 = oc_new_resource("FASTEN_64", "/fasten_64", 1, 0);
+  oc_resource_bind_resource_type(res_64, "fasten_64");
+  _register_resources(res_64);
+  oc_resource_set_request_handler(res_64, OC_GET, get_request_handler_64, NULL);
+  oc_add_resource(res_64);
+
   oc_resource_t *res_128 = oc_new_resource("FASTEN_128", "/fasten_128", 1, 0);
   oc_resource_bind_resource_type(res_128, "fasten_128");
   _register_resources(res_128);
@@ -184,7 +203,8 @@ register_resources(void)
   oc_resource_t *res_16K = oc_new_resource("FASTEN_16K", "/fasten_16k", 1, 0);
   oc_resource_bind_resource_type(res_16K, "fasten_16k");
   _register_resources(res_16K);
-  oc_resource_set_request_handler(res_16K, OC_GET, get_request_handler_16K, NULL);
+  oc_resource_set_request_handler(res_16K, OC_GET, get_request_handler_16K,
+                                  NULL);
   oc_add_resource(res_16K);
 }
 
@@ -239,6 +259,7 @@ init(void)
   }
   pthread_condattr_destroy(&attr);
 
+  data_64 = (uint8_t *)malloc(64);
   data_128 = (uint8_t *)malloc(128);
   data_256 = (uint8_t *)malloc(256);
   data_512 = (uint8_t *)malloc(512);
@@ -257,6 +278,7 @@ deinit(void)
   pthread_cond_destroy(&cv);
   pthread_mutex_destroy(&mutex);
 
+  free((void *)data_64);
   free((void *)data_128);
   free((void *)data_256);
   free((void *)data_512);
