@@ -50,7 +50,8 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
 
   for (size_t i = 0; i < oc_string_array_get_allocated_size(types); i++) {
     char *t = oc_string_array_get_item(types, i);
-    if (strlen(t) == 10 && strncmp(t, rt, 10) == 0) {
+    int str_len = strlen(t);
+    if (strncmp(t, rt, str_len) == 0) {
       strncpy(a_fasten, uri, uri_len);
       a_fasten[uri_len] = '\0';
 
