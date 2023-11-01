@@ -189,13 +189,6 @@ register_resources(void)
 }
 
 static void
-random_pin_cb(const unsigned char *pin, size_t pin_len, void *data)
-{
-  (void)data;
-  OC_PRINTF("\n\nRandom PIN: %.*s\n\n", (int)pin_len, pin);
-}
-
-static void
 signal_event_loop(void)
 {
   pthread_cond_signal(&cv);
@@ -314,7 +307,6 @@ main(void)
   };
 
   oc_storage_config("./fasten_server_creds");
-  oc_set_random_pin_callback(random_pin_cb, NULL);
 
   int ret = oc_main_init(&handler);
   if (ret < 0) {
