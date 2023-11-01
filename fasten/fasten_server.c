@@ -268,6 +268,15 @@ init(void)
   data_4K = (uint8_t *)malloc(4096);
   data_8K = (uint8_t *)malloc(8192);
   data_16K = (uint8_t *)malloc(16384);
+  memset((void *)data_64, 'A', 64);
+  memset((void *)data_128, 'A', 128);
+  memset((void *)data_256, 'A', 256);
+  memset((void *)data_512, 'A', 512);
+  memset((void *)data_1K, 'A', 1024);
+  memset((void *)data_2K, 'A', 2048);
+  memset((void *)data_4K, 'A', 4096);
+  memset((void *)data_8K, 'A', 8192);
+  memset((void *)data_16K, 'A', 16384);
 
   return true;
 }
