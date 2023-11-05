@@ -352,7 +352,7 @@ CONSTRAINED_LIBS = libiotivity-lite-server.a libiotivity-lite-client.a \
 PC = iotivity-lite-client.pc iotivity-lite-server.pc \
      iotivity-lite-client-server.pc
 
-all: $(CONSTRAINED_LIBS) $(SAMPLES) $(PC) $(SWIG)
+all: $(CONSTRAINED_LIBS) $(SAMPLES) $(PC)
 
 test: all
 	LD_LIBRARY_PATH=./ ./apitest
