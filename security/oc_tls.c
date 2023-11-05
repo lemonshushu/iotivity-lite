@@ -2598,7 +2598,15 @@ write_application_data(oc_tls_peer_t *peer)
 static void
 oc_tls_handshake(oc_tls_peer_t *peer)
 {
+  struct timeval tv;
+
+  gettimeofday(&tv, NULL);
+  OC_PRINTF("[DEBUG] TLS handshake started at %ld.%06ld\n", tv.tv_sec,
+            tv.tv_usec);
   int ret = mbedtls_ssl_handshake(&peer->ssl_ctx);
+  gettimeofday(&tv, NULL);
+  OC_PRINTF("[DEBUG] TLS handshake ended at %ld.%06ld\n", tv.tv_sec,
+            tv.tv_usec);
   if (ret < 0 && ret != MBEDTLS_ERR_SSL_WANT_READ &&
       ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
     TLS_LOG_MBEDTLS_ERROR("mbedtls_ssl_handshake", ret);
@@ -2623,16 +2631,7 @@ oc_tls_on_tcp_connect(const oc_endpoint_t *endpoint, int state, void *data)
     return;
   }
   if (state == OC_TCP_SOCKET_STATE_CONNECTED) {
-
-    struct timeval tv;
-
-    gettimeofday(&tv, NULL);
-    OC_PRINTF("[DEBUG] TLS handshake started at %ld.%06ld\n", tv.tv_sec,
-              tv.tv_usec);
     oc_tls_handshake(peer);
-    gettimeofday(&tv, NULL);
-    OC_PRINTF("[DEBUG] TLS handshake ended at %ld.%06ld\n", tv.tv_sec,
-              tv.tv_usec);
     return;
   }
   OC_ERR("oc_tls_on_tcp_connect: ends with error state: %d", state);
