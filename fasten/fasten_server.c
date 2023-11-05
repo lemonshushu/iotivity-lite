@@ -1,5 +1,4 @@
 #include "oc_api.h"
-#include "port/oc_clock.h"
 #include "oc_log.h"
 #include <pthread.h>
 #include <signal.h>

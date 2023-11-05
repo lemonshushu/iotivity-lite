@@ -1,7 +1,5 @@
 #include "oc_api.h"
-#include "port/oc_clock.h"
 #include "oc_log.h"
-#include <inttypes.h>
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -33,7 +31,6 @@ static void
 get_response_handler(oc_client_response_t *data)
 {
   (void)data;
-  return;
 }
 
 static oc_discovery_flags_t
