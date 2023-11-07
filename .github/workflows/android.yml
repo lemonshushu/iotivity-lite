@@ -16,6 +16,19 @@ on:
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+    inputs:
+      ndk-version:
+        description: NDK version
+        required: false
+        type: choice
+        default: r26
+        options:
+          - r21
+          - r22
+          - r23
+          - r24
+          - r25
+          - r26
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -28,8 +41,8 @@ jobs:
         include:
           # default (ip4 on, secure on, pki on, dynamic allocation on, tcp on, cloud on, java on, IDD on)
           - args: ""
-          # debug on
-          - args: "DEBUG=1"
+          # debug on, json encoder on
+          - args: "DEBUG=1 JSON_ENCODER=1"
           # secure off
           - args: "SECURE=0"
           # TODO: reenable when dynamic allocation is fixed
@@ -57,7 +70,7 @@ jobs:
       - uses: nttld/setup-ndk@v1
         id: setup-ndk
         with:
-          ndk-version: r25
+          ndk-version: ${{ (github.event_name == 'workflow_dispatch' && inputs.ndk-version) || 'r26' }}
 
       # Runs a set of commands using the runners shell
       - name: build
