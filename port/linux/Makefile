@@ -1,6 +1,5 @@
 TCP=1
 PKI=1
-DEBUG=1
 export CC = gcc
 SED = sed
 INSTALL = install
