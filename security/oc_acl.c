@@ -21,6 +21,7 @@
 #include "api/oc_core_res_internal.h"
 #include "api/oc_discovery_internal.h"
 #include "api/oc_helpers_internal.h"
+#include "api/oc_platform_internal.h"
 #include "api/oc_ri_internal.h"
 #include "oc_acl_internal.h"
 #include "oc_api.h"
@@ -368,23 +369,22 @@ eval_access(oc_method_t method, uint16_t permission)
 static bool
 oc_sec_check_acl_on_get(const oc_resource_t *resource, bool is_otm)
 {
-  const char *uri = oc_string(resource->uri);
-  size_t uri_len = oc_string_len(resource->uri);
+  oc_string_view_t uri = oc_string_view2(&resource->uri);
 
   /* Retrieve requests to "/oic/res", "/oic/d" and "/oic/p" shall be granted.
    */
   if (is_otm &&
-      ((uri_len == OC_CHAR_ARRAY_LEN(OCF_RES_URI) &&
-        memcmp(uri, OCF_RES_URI, OC_CHAR_ARRAY_LEN(OCF_RES_URI)) == 0) ||
-       (uri_len == OC_CHAR_ARRAY_LEN(OCF_D_URI) &&
-        memcmp(uri, OCF_D_URI, OC_CHAR_ARRAY_LEN(OCF_D_URI)) == 0) ||
-       (uri_len == 6 && memcmp(uri, "/oic/p", 6) == 0))) {
+      ((uri.length == OC_CHAR_ARRAY_LEN(OCF_RES_URI) &&
+        memcmp(uri.data, OCF_RES_URI, OC_CHAR_ARRAY_LEN(OCF_RES_URI)) == 0) ||
+       (uri.length == OC_CHAR_ARRAY_LEN(OCF_D_URI) &&
+        memcmp(uri.data, OCF_D_URI, OC_CHAR_ARRAY_LEN(OCF_D_URI)) == 0) ||
+       oc_is_platform_resource_uri(uri))) {
     return true;
   }
 
 #ifdef OC_HAS_FEATURE_PLGD_TIME
-  if (uri_len == OC_CHAR_ARRAY_LEN(PLGD_TIME_URI) &&
-      memcmp(uri, PLGD_TIME_URI, OC_CHAR_ARRAY_LEN(PLGD_TIME_URI)) == 0) {
+  if (uri.length == OC_CHAR_ARRAY_LEN(PLGD_TIME_URI) &&
+      memcmp(uri.data, PLGD_TIME_URI, OC_CHAR_ARRAY_LEN(PLGD_TIME_URI)) == 0) {
     return true;
   }
 #endif /* OC_HAS_FEATURE_PLGD_TIME */
@@ -392,8 +392,8 @@ oc_sec_check_acl_on_get(const oc_resource_t *resource, bool is_otm)
 #ifdef OC_WKCORE
   /* if enabled also the .well-known/core will be granted access, since this
    * also a discovery resource. */
-  if (uri_len == OC_CHAR_ARRAY_LEN(OC_WELLKNOWNCORE_URI) &&
-      memcmp(uri, OC_WELLKNOWNCORE_URI,
+  if (uri.length == OC_CHAR_ARRAY_LEN(OC_WELLKNOWNCORE_URI) &&
+      memcmp(uri.data, OC_WELLKNOWNCORE_URI,
              OC_CHAR_ARRAY_LEN(OC_WELLKNOWNCORE_URI)) == 0) {
     return true;
   }
@@ -408,8 +408,7 @@ oc_sec_check_acl_on_get(const oc_resource_t *resource, bool is_otm)
  * define is FOR DEVELOPMENT USE ONLY.
  */
 #ifdef OC_DOXM_UUID_FILTER
-  if (uri_len == 13 && method == OC_GET &&
-      memcmp(uri, "/oic/sec/doxm", 13) == 0) {
+  if (method == OC_GET && oc_sec_is_doxm_resource_uri(uri)) {
     OC_DBG("oc_sec_check_acl: R access granted to /doxm");
     return true;
   }
@@ -430,7 +429,7 @@ oc_sec_check_acl_by_uuid(const oc_uuid_t *uuid, size_t device,
   }
   const oc_sec_doxm_t *doxm = oc_sec_get_doxm(device);
   if (memcmp(uuid->id, doxm->rowneruuid.id, sizeof(uuid->id)) == 0 &&
-      uri_len == 13 && memcmp(uri, "/oic/sec/doxm", 13) == 0) {
+      oc_sec_is_doxm_resource_uri(oc_string_view(uri, uri_len))) {
     OC_DBG("oc_acl: peer's UUID matches doxm's rowneruuid");
     return true;
   }
@@ -523,8 +522,7 @@ oc_sec_check_acl(oc_method_t method, const oc_resource_t *resource,
     /* Anonymous Retrieve and Updates requests to “/oic/sec/doxm” shall be
        granted.
     */
-    if (oc_string_len(resource->uri) == 13 &&
-        memcmp(oc_string(resource->uri), "/oic/sec/doxm", 13) == 0) {
+    if (oc_sec_is_doxm_resource_uri(oc_string_view2(&resource->uri))) {
       OC_DBG("oc_sec_check_acl: RW access granted to /doxm  prior to DOC");
       return true;
     }
@@ -960,7 +958,7 @@ oc_sec_get_ace_by_aceid(int aceid, size_t device)
 }
 
 static oc_sec_ace_t *
-oc_acl_remove_ace_from_device(oc_sec_ace_t *ace, size_t device)
+oc_acl_remove_ace_from_device(const oc_sec_ace_t *ace, size_t device)
 {
   return oc_list_remove2(g_aclist[device].subjects, ace);
 }
@@ -968,8 +966,8 @@ oc_acl_remove_ace_from_device(oc_sec_ace_t *ace, size_t device)
 static oc_sec_ace_t *
 oc_acl_remove_ace_from_device_by_aceid(int aceid, size_t device)
 {
-  oc_sec_ace_t *ace = oc_sec_get_ace_by_aceid(aceid, device);
-  if (ace) {
+  const oc_sec_ace_t *ace = oc_sec_get_ace_by_aceid(aceid, device);
+  if (ace != NULL) {
     return oc_acl_remove_ace_from_device(ace, device);
   }
   return false;
@@ -1313,11 +1311,13 @@ oc_sec_acl_add_bootstrap_acl(size_t device)
 {
   bool ret = oc_sec_acl_anon_connection(device, OCF_RES_URI, OC_PERM_RETRIEVE);
   ret = oc_sec_acl_anon_connection(device, OCF_D_URI, OC_PERM_RETRIEVE) && ret;
-  ret = oc_sec_acl_anon_connection(device, "/oic/p", OC_PERM_RETRIEVE) && ret;
-#ifdef OC_WKCORE
   ret =
-    oc_sec_acl_anon_connection(device, "/.well-known/core", OC_PERM_RETRIEVE) &&
+    oc_sec_acl_anon_connection(device, OCF_PLATFORM_URI, OC_PERM_RETRIEVE) &&
     ret;
+#ifdef OC_WKCORE
+  ret = oc_sec_acl_anon_connection(device, OC_WELLKNOWNCORE_URI,
+                                   OC_PERM_RETRIEVE) &&
+        ret;
 #endif /* OC_WKCORE */
 #ifdef OC_HAS_FEATURE_PLGD_TIME
   ret =

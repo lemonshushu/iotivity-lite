@@ -21,6 +21,8 @@
 #error "ERROR: Please rebuild with OC_DYNAMIC_ALLOCATION"
 #endif /* !OC_DYNAMIC_ALLOCATION */
 
+#include "api/oc_discovery_internal.h"
+#include "api/oc_platform_internal.h"
 #include "oc_core_res.h"
 #include "oc_csr.h"
 #include "oc_obt.h"
@@ -165,16 +167,19 @@ obt_rdp_12(oc_client_response_t *data)
     oc_rep_object_array_end_item(resources);
 
     oc_rep_object_array_start_item(resources);
-    oc_rep_set_text_string(resources, href, "/oic/p");
+    oc_rep_set_text_string_v1(resources, href, OCF_PLATFORM_URI,
+                              OC_CHAR_ARRAY_LEN(OCF_PLATFORM_URI));
     oc_rep_object_array_end_item(resources);
 
     oc_rep_object_array_start_item(resources);
-    oc_rep_set_text_string(resources, href, "/oic/res");
+    oc_rep_set_text_string_v1(resources, href, OCF_RES_URI,
+                              OC_CHAR_ARRAY_LEN(OCF_RES_URI));
     oc_rep_object_array_end_item(resources);
 
     if (o->sdi) {
       oc_rep_object_array_start_item(resources);
-      oc_rep_set_text_string(resources, href, OCF_SEC_SDI_URI);
+      oc_rep_set_text_string_v1(resources, href, OCF_SEC_SDI_URI,
+                                OC_CHAR_ARRAY_LEN(OCF_SEC_SDI_URI));
       oc_rep_object_array_end_item(resources);
     }
 
@@ -277,7 +282,7 @@ obt_rdp_9(oc_client_response_t *data)
    */
   const oc_device_t *device = o->device;
   const oc_endpoint_t *ep = oc_obt_get_secure_endpoint(device->endpoint);
-  if (oc_init_post("/oic/sec/doxm", ep, NULL, &obt_rdp_10, HIGH_QOS, o)) {
+  if (oc_init_post(OCF_SEC_DOXM_URI, ep, NULL, &obt_rdp_10, HIGH_QOS, o)) {
     oc_rep_start_root_object();
     oc_rep_set_boolean(root, owned, true);
     oc_rep_end_root_object();
@@ -491,7 +496,7 @@ obt_rdp_4(oc_client_response_t *data)
   const oc_device_t *device = o->device;
   const oc_endpoint_t *ep = oc_obt_get_secure_endpoint(device->endpoint);
 
-  if (oc_init_post("/oic/sec/doxm", ep, NULL, &obt_rdp_5, HIGH_QOS, o)) {
+  if (oc_init_post(OCF_SEC_DOXM_URI, ep, NULL, &obt_rdp_5, HIGH_QOS, o)) {
     const oc_uuid_t *my_uuid = oc_core_get_device_id(0);
     char uuid[OC_UUID_LEN];
     oc_uuid_to_str(my_uuid, uuid, OC_UUID_LEN);
@@ -547,7 +552,7 @@ obt_rdp_3(oc_client_response_t *data)
   }
 
   const oc_endpoint_t *cep = oc_obt_get_secure_endpoint(device->endpoint);
-  if (oc_init_post("/oic/sec/doxm", cep, NULL, &obt_rdp_4, HIGH_QOS, o)) {
+  if (oc_init_post(OCF_SEC_DOXM_URI, cep, NULL, &obt_rdp_4, HIGH_QOS, o)) {
     oc_rep_start_root_object();
     /* Set random uuid as deviceuuid */
     oc_rep_set_text_string(root, deviceuuid, uuid);
@@ -578,7 +583,7 @@ obt_rdp_2(oc_client_response_t *data)
    */
   const oc_device_t *device = o->device;
   const oc_endpoint_t *ep = oc_obt_get_secure_endpoint(device->endpoint);
-  if (oc_init_post("/oic/sec/doxm", ep, NULL, &obt_rdp_3, HIGH_QOS, o)) {
+  if (oc_init_post(OCF_SEC_DOXM_URI, ep, NULL, &obt_rdp_3, HIGH_QOS, o)) {
     const oc_uuid_t *my_uuid = oc_core_get_device_id(0);
     char ouuid[OC_UUID_LEN];
     oc_uuid_to_str(my_uuid, ouuid, OC_UUID_LEN);
@@ -746,7 +751,7 @@ obt_rrdp_2(oc_client_response_t *data)
      */
     const oc_device_t *device = o->device;
     const oc_endpoint_t *ep = oc_obt_get_unsecure_endpoint(device->endpoint);
-    if (oc_init_post("/oic/sec/doxm", ep, NULL, &obt_rrdp_3, HIGH_QOS, o)) {
+    if (oc_init_post(OCF_SEC_DOXM_URI, ep, NULL, &obt_rrdp_3, HIGH_QOS, o)) {
       oc_rep_start_root_object();
       oc_rep_set_int(root, oxmsel, OC_OXMTYPE_RDP);
       oc_rep_end_root_object();
@@ -793,7 +798,7 @@ oc_obt_request_random_pin(const oc_uuid_t *uuid, oc_obt_device_status_cb_t cb,
   /**  1) get doxm
    */
   const oc_endpoint_t *ep = oc_obt_get_unsecure_endpoint(device->endpoint);
-  if (oc_do_get("/oic/sec/doxm", ep, NULL, &obt_rrdp_2, HIGH_QOS, o)) {
+  if (oc_do_get(OCF_SEC_DOXM_URI, ep, NULL, &obt_rrdp_2, HIGH_QOS, o)) {
     return 0;
   }
 

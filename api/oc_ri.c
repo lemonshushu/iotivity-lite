@@ -16,6 +16,7 @@
  *
  ***************************************************************************/
 
+#include "api/oc_endpoint_internal.h"
 #include "api/oc_event_callback_internal.h"
 #include "api/oc_events_internal.h"
 #include "api/oc_message_buffer_internal.h"
@@ -308,19 +309,24 @@ oc_status_code_unsafe(oc_status_t key)
   return oc_coap_status_codes[key];
 }
 
+bool
+oc_status_is_internal_code(oc_status_t code)
+{
+  return code >= __NUM_OC_STATUS_CODES__;
+}
+
 int
 oc_status_code(oc_status_t key)
 {
-  if (key >= __NUM_OC_STATUS_CODES__) {
-    if (OC_IGNORE == key) {
-      return CLEAR_TRANSACTION;
-    }
-    OC_WRN("oc_status_code: invalid status code %d", (int)key);
-    return -1;
+  if (!oc_status_is_internal_code(key)) {
+    return oc_status_code_unsafe(key);
   }
 
-  // int cast is safe: no status code is larger than INT_MAX
-  return oc_status_code_unsafe(key);
+  if (OC_IGNORE == key) {
+    return CLEAR_TRANSACTION;
+  }
+  OC_WRN("oc_status_code: invalid status code %d", (int)key);
+  return -1;
 }
 
 int
@@ -1054,15 +1060,19 @@ uint64_t
 oc_ri_get_batch_etag(const oc_resource_t *resource,
                      const oc_endpoint_t *endpoint, size_t device)
 {
+#ifdef OC_RES_BATCH_SUPPORT
   if (oc_core_get_resource_by_index(OCF_RES, device) == resource) {
     return oc_discovery_get_batch_etag(endpoint, device);
   }
+#endif /* OC_RES_BATCH_SUPPORT */
 #ifdef OC_COLLECTIONS
   if (oc_check_if_collection(resource)) {
     return oc_collection_get_batch_etag((const oc_collection_t *)resource);
   }
 #endif /* OC_COLLECTIONS */
-
+  (void)resource;
+  (void)endpoint;
+  (void)device;
   OC_DBG("custom batch etag");
   return OC_ETAG_UNINITIALIZED;
 }
@@ -1274,7 +1284,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
   if (uri_query_len) {
     // Check if the request is a multicast request and if the device id in
     // query matches the device id
-    if (request_obj.origin && (request_obj.origin->flags & MULTICAST) &&
+    if (oc_endpoint_is_multicast(endpoint) &&
         !oc_ri_filter_request_by_device_id(endpoint->device, uri_query,
                                            uri_query_len)) {
       coap_set_global_status_code(CLEAR_TRANSACTION);
@@ -1631,8 +1641,7 @@ oc_ri_invoke_coap_entity_handler(coap_make_response_ctx_t *ctx,
   }
 #endif /* OC_SERVER */
 
-  if (request_obj.origin != NULL &&
-      (request_obj.origin->flags & MULTICAST) != 0 &&
+  if (oc_endpoint_is_multicast(request_obj.origin) &&
       response_buffer.code >= oc_status_code_unsafe(OC_STATUS_BAD_REQUEST)) {
     response_buffer.code = CLEAR_TRANSACTION;
   }

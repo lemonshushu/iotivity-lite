@@ -48,17 +48,6 @@ void oc_core_init(void);
 void oc_core_shutdown(void);
 
 /**
- * @brief initialize the platform
- *
- * @param mfg_name the manufactorer name (cannot be NULL)
- * @param init_cb the callback
- * @param data  the user data
- * @return oc_platform_info_t* the platform information
- */
-oc_platform_info_t *oc_core_init_platform(const char *mfg_name,
-                                          oc_core_init_platform_cb_t init_cb,
-                                          void *data) OC_NONNULL(1);
-/**
  * @brief Add new device to the platform
  *
  * @param cfg device configuration
@@ -139,6 +128,9 @@ int oc_core_get_resource_type_by_uri(const char *uri, size_t uri_len)
 /** @brief Set the device name */
 void oc_core_device_set_name(size_t device, const char *name, size_t name_len)
   OC_NONNULL();
+
+/** @brief Check if the value is a valid device index */
+bool oc_core_device_is_valid(size_t device);
 
 #ifdef __cplusplus
 }
