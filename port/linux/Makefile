@@ -353,6 +353,8 @@ PC = iotivity-lite-client.pc iotivity-lite-server.pc \
 
 all: $(CONSTRAINED_LIBS) $(SAMPLES) $(PC)
 
+fasten: fasten_server fasten_client onboarding_tool
+
 test: all
 	LD_LIBRARY_PATH=./ ./apitest
 	LD_LIBRARY_PATH=./ ./messagingtest
