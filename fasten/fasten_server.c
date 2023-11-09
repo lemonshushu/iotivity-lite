@@ -3,21 +3,14 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
+#define MAX_PAYLOAD_SIZE (10485760)
 
 static pthread_mutex_t mutex;
 static pthread_cond_t cv;
 
 static bool quit = false;
 
-const uint8_t *data_64;
-const uint8_t *data_128;
-const uint8_t *data_256;
-const uint8_t *data_512;
-const uint8_t *data_1K;
-const uint8_t *data_2K;
-const uint8_t *data_4K;
-const uint8_t *data_8K;
-const uint8_t *data_16K;
+const uint8_t *fasten_data;
 
 static int
 app_init(void)
@@ -29,182 +22,34 @@ app_init(void)
 }
 
 static void
-get_request_handler_64(oc_request_t *request, oc_interface_mask_t interfaces,
-                       void *user_data)
+get_request_handler(oc_request_t *request, oc_interface_mask_t interfaces,
+                    void *user_data)
 {
   (void)interfaces;
   (void)user_data;
+  size_t payload_size = 0;
+  const char *query = request->query;
+  if (strncmp(query, "size=", 5) == 0) {
+    payload_size = (size_t)strtoul(query + 5, NULL, 10);
+  }
+
   oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_64, 64);
+  oc_rep_set_byte_string(root, data, fasten_data, payload_size);
   oc_rep_end_root_object();
   oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_128(oc_request_t *request, oc_interface_mask_t interfaces,
-                        void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_128, 128);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_256(oc_request_t *request, oc_interface_mask_t interfaces,
-                        void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_256, 256);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_512(oc_request_t *request, oc_interface_mask_t interfaces,
-                        void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_512, 512);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_1K(oc_request_t *request, oc_interface_mask_t interfaces,
-                       void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_1K, 1024);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_2K(oc_request_t *request, oc_interface_mask_t interfaces,
-                       void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_2K, 2048);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_4K(oc_request_t *request, oc_interface_mask_t interfaces,
-                       void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_4K, 4096);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_8K(oc_request_t *request, oc_interface_mask_t interfaces,
-                       void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_8K, 8192);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-get_request_handler_16K(oc_request_t *request, oc_interface_mask_t interfaces,
-                        void *user_data)
-{
-  (void)interfaces;
-  (void)user_data;
-  oc_rep_start_root_object();
-  oc_rep_set_byte_string(root, data, data_16K, 16384);
-  oc_rep_end_root_object();
-  oc_send_response(request, OC_STATUS_OK);
-}
-
-static void
-_register_resources(oc_resource_t *res)
-{
-  oc_resource_bind_resource_interface(res, OC_IF_R);
-  oc_resource_set_default_interface(res, OC_IF_R);
-  oc_resource_set_discoverable(res, true);
-  oc_resource_set_periodic_observable(res, 1);
 }
 
 static void
 register_resources(void)
 {
-  oc_resource_t *res_64 = oc_new_resource("FASTEN_64", "/fasten_64", 1, 0);
-  oc_resource_bind_resource_type(res_64, "fasten_64");
-  _register_resources(res_64);
-  oc_resource_set_request_handler(res_64, OC_GET, get_request_handler_64, NULL);
-  oc_add_resource(res_64);
-
-  oc_resource_t *res_128 = oc_new_resource("FASTEN_128", "/fasten_128", 1, 0);
-  oc_resource_bind_resource_type(res_128, "fasten_128");
-  _register_resources(res_128);
-  oc_resource_set_request_handler(res_128, OC_GET, get_request_handler_128,
-                                  NULL);
-  oc_add_resource(res_128);
-
-  oc_resource_t *res_256 = oc_new_resource("FASTEN_256", "/fasten_256", 1, 0);
-  oc_resource_bind_resource_type(res_256, "fasten_256");
-  _register_resources(res_256);
-  oc_resource_set_request_handler(res_256, OC_GET, get_request_handler_256,
-                                  NULL);
-  oc_add_resource(res_256);
-
-  oc_resource_t *res_512 = oc_new_resource("FASTEN_512", "/fasten_512", 1, 0);
-  oc_resource_bind_resource_type(res_512, "fasten_512");
-  _register_resources(res_512);
-  oc_resource_set_request_handler(res_512, OC_GET, get_request_handler_512,
-                                  NULL);
-  oc_add_resource(res_512);
-
-  oc_resource_t *res_1K = oc_new_resource("FASTEN_1K", "/fasten_1k", 1, 0);
-  oc_resource_bind_resource_type(res_1K, "fasten_1k");
-  _register_resources(res_1K);
-  oc_resource_set_request_handler(res_1K, OC_GET, get_request_handler_1K, NULL);
-  oc_add_resource(res_1K);
-
-  oc_resource_t *res_2K = oc_new_resource("FASTEN_2K", "/fasten_2k", 1, 0);
-  oc_resource_bind_resource_type(res_2K, "fasten_2k");
-  _register_resources(res_2K);
-  oc_resource_set_request_handler(res_2K, OC_GET, get_request_handler_2K, NULL);
-  oc_add_resource(res_2K);
-
-  oc_resource_t *res_4K = oc_new_resource("FASTEN_4K", "/fasten_4k", 1, 0);
-  oc_resource_bind_resource_type(res_4K, "fasten_4k");
-  _register_resources(res_4K);
-  oc_resource_set_request_handler(res_4K, OC_GET, get_request_handler_4K, NULL);
-  oc_add_resource(res_4K);
-
-  oc_resource_t *res_8K = oc_new_resource("FASTEN_8K", "/fasten_8k", 1, 0);
-  oc_resource_bind_resource_type(res_8K, "fasten_8k");
-  _register_resources(res_8K);
-  oc_resource_set_request_handler(res_8K, OC_GET, get_request_handler_8K, NULL);
-  oc_add_resource(res_8K);
-
-  oc_resource_t *res_16K = oc_new_resource("FASTEN_16K", "/fasten_16k", 1, 0);
-  oc_resource_bind_resource_type(res_16K, "fasten_16k");
-  _register_resources(res_16K);
-  oc_resource_set_request_handler(res_16K, OC_GET, get_request_handler_16K,
-                                  NULL);
-  oc_add_resource(res_16K);
+  oc_resource_t *res = oc_new_resource("FASTEN", "/fasten", 1, 0);
+  oc_resource_bind_resource_type(res, "fasten");
+  oc_resource_bind_resource_interface(res, OC_IF_R);
+  oc_resource_set_default_interface(res, OC_IF_R);
+  oc_resource_set_discoverable(res, true);
+  oc_resource_set_periodic_observable(res, 1);
+  oc_resource_set_request_handler(res, OC_GET, get_request_handler, NULL);
+  oc_add_resource(res);
 }
 
 static void
@@ -258,25 +103,7 @@ init(void)
   }
   pthread_condattr_destroy(&attr);
 
-  data_64 = (uint8_t *)malloc(64);
-  data_128 = (uint8_t *)malloc(128);
-  data_256 = (uint8_t *)malloc(256);
-  data_512 = (uint8_t *)malloc(512);
-  data_1K = (uint8_t *)malloc(1024);
-  data_2K = (uint8_t *)malloc(2048);
-  data_4K = (uint8_t *)malloc(4096);
-  data_8K = (uint8_t *)malloc(8192);
-  data_16K = (uint8_t *)malloc(16384);
-  memset((void *)data_64, 'A', 64);
-  memset((void *)data_128, 'A', 128);
-  memset((void *)data_256, 'A', 256);
-  memset((void *)data_512, 'A', 512);
-  memset((void *)data_1K, 'A', 1024);
-  memset((void *)data_2K, 'A', 2048);
-  memset((void *)data_4K, 'A', 4096);
-  memset((void *)data_8K, 'A', 8192);
-  memset((void *)data_16K, 'A', 16384);
-
+  fasten_data = (uint8_t *)malloc(MAX_PAYLOAD_SIZE);
   return true;
 }
 
@@ -286,15 +113,7 @@ deinit(void)
   pthread_cond_destroy(&cv);
   pthread_mutex_destroy(&mutex);
 
-  free((void *)data_64);
-  free((void *)data_128);
-  free((void *)data_256);
-  free((void *)data_512);
-  free((void *)data_1K);
-  free((void *)data_2K);
-  free((void *)data_4K);
-  free((void *)data_8K);
-  free((void *)data_16K);
+  free((void *)fasten_data);
 }
 
 static void

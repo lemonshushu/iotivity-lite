@@ -4,15 +4,16 @@
 #include <signal.h>
 #include <stdio.h>
 #include <sys/time.h>
+#define MAX_PAYLOAD_SIZE (10485760)
 
 static pthread_mutex_t mutex;
 static pthread_cond_t cv;
 
 static bool quit = false;
 
-static char *rt = NULL;
+long payload_size = 0;
 
-struct timeval tv_GET;
+static struct timeval tv;
 
 static int
 app_init(void)
@@ -47,8 +48,8 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
 
   for (size_t i = 0; i < oc_string_array_get_allocated_size(types); i++) {
     char *t = oc_string_array_get_item(types, i);
-    int str_len = strlen(t);
-    if (strncmp(t, rt, str_len) == 0) {
+    size_t str_len = strlen(t);
+    if (strncmp(t, "fasten", str_len) == 0) {
       strncpy(a_fasten, uri, uri_len);
       a_fasten[uri_len] = '\0';
 
@@ -66,10 +67,15 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
         return OC_STOP_DISCOVERY;
       }
 
-      gettimeofday(&tv_GET, NULL);
-      OC_PRINTF("[DEBUG] Issued GET request at %ld.%06ld\n", tv_GET.tv_sec,
-                tv_GET.tv_usec);
-      if (!oc_do_get(a_fasten, server, NULL, &get_response_handler, LOW_QOS,
+      gettimeofday(&tv, NULL);
+      OC_PRINTF("[DEBUG] Issued GET request at %ld.%06ld\n", tv.tv_sec,
+                tv.tv_usec);
+
+      /* Construct query */
+      char query[13];
+      snprintf(query, 13, "size=%ld", payload_size);
+
+      if (!oc_do_get(a_fasten, server, query, &get_response_handler, LOW_QOS,
                      NULL)) {
         OC_PRINTF("ERROR: Could not issue GET request\n");
       }
@@ -83,7 +89,7 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
 static void
 issue_requests(void)
 {
-  oc_do_ip_discovery(rt, &discovery, NULL);
+  oc_do_ip_discovery("fasten", &discovery, NULL);
 }
 
 static void
@@ -177,11 +183,19 @@ main(int argc, char **argv)
 #endif
 
   if (argc < 2) {
-    OC_PRINTF("Usage: fasten_client <resource-type>\n");
+    OC_PRINTF("Usage: fasten_client <payload-size>\n");
     return -1;
   }
 
-  rt = argv[1];
+  payload_size = strtol(argv[1], NULL, 10);
+
+  if (payload_size < 0) {
+    OC_PRINTF("ERROR: Invalid payload size\n");
+    return -1;
+  } else if (payload_size > MAX_PAYLOAD_SIZE) {
+    OC_PRINTF("ERROR: Payload size too large (Max: %d)\n", MAX_PAYLOAD_SIZE);
+    return -1;
+  }
 
   if (!init()) {
     return -1;
