@@ -314,4 +314,4 @@ Onboarding tool의 `[97] RESET device` 옵션도 같은 동작을 수행한다.
 
 `make clean`만 하면 object 파일들만 삭제되고, credential 파일들은 그대로 유지된다. `make cleanall`을 하면 모든 앱들의 모든 credential들이 삭제된다.
 
-Credential이 삭제되면 [2. Onboarding & Provisioning](#2. Onboarding & Provisioning)의 과정을 다시 진행해야 한다.
+Credential이 삭제되면 [2. Onboarding & Provisioning](#2-onboarding--provisioning)의 과정을 다시 진행해야 한다.
