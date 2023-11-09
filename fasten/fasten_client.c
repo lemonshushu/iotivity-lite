@@ -67,13 +67,13 @@ discovery(const char *anchor, const char *uri, oc_string_array_t types,
         return OC_STOP_DISCOVERY;
       }
 
-      gettimeofday(&tv, NULL);
-      OC_PRINTF("[DEBUG] Issued GET request at %ld.%06ld\n", tv.tv_sec,
-                tv.tv_usec);
-
       /* Construct query */
       char query[13];
       snprintf(query, 13, "size=%ld", payload_size);
+
+      gettimeofday(&tv, NULL);
+      OC_PRINTF("[DEBUG] Issued GET request at %ld.%06ld\n", tv.tv_sec,
+                tv.tv_usec);
 
       if (!oc_do_get(a_fasten, server, query, &get_response_handler, LOW_QOS,
                      NULL)) {
