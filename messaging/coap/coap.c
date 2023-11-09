@@ -1509,7 +1509,7 @@ coap_tcp_parse_message(coap_packet_t *packet, uint8_t *data, size_t data_len,
                        bool validate)
 {
   gettimeofday(&tv_packet, NULL); // Update the value of tv_packet
-  OC_PRINTF("[DEBUG] Packet receieved at %ld.%06ld\n", tv_packet.tv_sec,
+  OC_PRINTF("[DEBUG] Packet received at %ld.%06ld\n", tv_packet.tv_sec,
             tv_packet.tv_usec);
 
   if (data_len > UINT32_MAX) {
