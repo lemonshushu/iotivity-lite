@@ -1,3 +1,5 @@
+TCP=1
+PKI=1
 export CC = gcc
 SED = sed
 INSTALL = install
@@ -186,7 +188,7 @@ LIBS?= -lm -pthread -lrt
 
 SAMPLES = server client temp_sensor simpleserver simpleserver_pki simpleclient client_collections_linux server_collections_linux server_block_linux client_block_linux \
 	server_certification_tests smart_home_server_linux multi_device_server multi_device_client smart_lock server_multithread_linux client_multithread_linux client_certification_tests \
-	server_rules secure_mcast_client secure_mcast_server1 secure_mcast_server2 simpleserver-resourcedefaults
+	server_rules secure_mcast_client secure_mcast_server1 secure_mcast_server2 simpleserver-resourcedefaults fasten_server fasten_client
 
 ifeq ($(V6DNS),1)
 	EXTRA_CFLAGS += -DOC_DNS_LOOKUP_IPV6
@@ -349,7 +351,9 @@ CONSTRAINED_LIBS = libiotivity-lite-server.a libiotivity-lite-client.a \
 PC = iotivity-lite-client.pc iotivity-lite-server.pc \
      iotivity-lite-client-server.pc
 
-all: $(CONSTRAINED_LIBS) $(SAMPLES) $(PC) $(UNIT_TESTS) $(SWIG)
+all: $(CONSTRAINED_LIBS) $(SAMPLES) $(PC)
+
+fasten: fasten_server fasten_client onboarding_tool
 
 test: all
 	LD_LIBRARY_PATH=./ ./apitest
@@ -501,6 +505,10 @@ simpleserver: libiotivity-lite-server.a $(ROOT_DIR)/apps/simpleserver.c
 	@mkdir -p $@_creds
 	${CC} -o $@ ../../apps/simpleserver.c libiotivity-lite-server.a -DOC_SERVER ${CFLAGS}  ${LIBS}
 
+fasten_server: libiotivity-lite-server.a $(ROOT_DIR)/fasten/fasten_server.c
+	@mkdir -p $@_creds
+	${CC} -o $@ ../../fasten/fasten_server.c libiotivity-lite-server.a -DOC_SERVER ${CFLAGS}  ${LIBS}
+
 secure_mcast_server1: libiotivity-lite-server.a $(ROOT_DIR)/apps/secure_mcast_server1.c
 	@mkdir -p $@_creds
 	${CC} -o $@ ../../apps/secure_mcast_server1.c libiotivity-lite-server.a -DOC_SERVER ${CFLAGS}  ${LIBS}
@@ -520,6 +528,10 @@ simpleserver-resourcedefaults: libiotivity-lite-server.a $(ROOT_DIR)/apps/simple
 simpleclient: libiotivity-lite-client.a $(ROOT_DIR)/apps/simpleclient.c
 	@mkdir -p $@_creds
 	${CC} -o $@ ../../apps/simpleclient.c libiotivity-lite-client.a -DOC_CLIENT ${CFLAGS}  ${LIBS}
+
+fasten_client: libiotivity-lite-client.a $(ROOT_DIR)/fasten/fasten_client.c
+	@mkdir -p $@_creds
+	${CC} -o $@ ../../fasten/fasten_client.c libiotivity-lite-client.a -DOC_CLIENT ${CFLAGS}  ${LIBS}
 
 secure_mcast_client: libiotivity-lite-client.a $(ROOT_DIR)/apps/secure_mcast_client.c
 	@mkdir -p $@_creds

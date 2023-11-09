@@ -70,6 +70,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <inttypes.h>
+#include <sys/time.h>
 
 /// TODO update mbedtls_config.h to use LOG_LEVEL instead of OC_DEBUG
 #if defined(OC_DEBUG)
@@ -2594,7 +2595,15 @@ write_application_data(oc_tls_peer_t *peer)
 static void
 oc_tls_handshake(oc_tls_peer_t *peer)
 {
+  struct timeval tv;
+
+  gettimeofday(&tv, NULL);
+  OC_PRINTF("[DEBUG] TLS handshake started at %ld.%06ld\n", tv.tv_sec,
+            tv.tv_usec);
   int ret = mbedtls_ssl_handshake(&peer->ssl_ctx);
+  gettimeofday(&tv, NULL);
+  OC_PRINTF("[DEBUG] TLS handshake ended at %ld.%06ld\n", tv.tv_sec,
+            tv.tv_usec);
   if (ret < 0 && ret != MBEDTLS_ERR_SSL_WANT_READ &&
       ret != MBEDTLS_ERR_SSL_WANT_WRITE) {
     TLS_LOG_MBEDTLS_ERROR("mbedtls_ssl_handshake", ret);
